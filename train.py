@@ -22,6 +22,12 @@ def train_models(args):
         look_back=args.look_back or TRAINING_CONFIG['look_back']
     )
     
+    # 如果只运行小规模测试
+    if args.test_only:
+        print("\n只运行小规模测试...")
+        dl_models.test_models(epochs=args.test_epochs or 5, batch_size=args.batch_size or 16)
+        return
+    
     # 训练指定的模型
     if args.model_type == 'all':
         model_types = ['MLP', 'LSTM', 'CNN']
@@ -45,7 +51,8 @@ def train_models(args):
             params=params,
             epochs=args.epochs or TRAINING_CONFIG['epochs'],
             batch_size=args.batch_size or TRAINING_CONFIG['batch_size'],
-            resume_training=args.resume
+            resume_training=args.resume,
+            run_small_test=args.run_small_test
         )
     
     # 比较模型性能
@@ -69,6 +76,12 @@ if __name__ == "__main__":
                       help=f'历史数据窗口大小 (默认: {TRAINING_CONFIG["look_back"]})')
     parser.add_argument('--resume', action='store_true',
                       help='是否从上次的检查点继续训练')
+    parser.add_argument('--run_small_test', action='store_true',
+                      help='训练前是否先进行小规模测试')
+    parser.add_argument('--test_only', action='store_true',
+                      help='是否仅运行小规模测试而不进行完整训练')
+    parser.add_argument('--test_epochs', type=int, default=5,
+                      help='小规模测试的训练轮数 (默认: 5)')
     
     args = parser.parse_args()
     

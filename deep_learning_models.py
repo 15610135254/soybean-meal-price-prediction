@@ -21,8 +21,10 @@ if is_apple_silicon:
         print("未检测到tensorflow-metal，将使用CPU运行")
         print("安装提示: pip install tensorflow-metal")
 
-from tensorflow.keras.models import Sequential, load_model
+from tensorflow.keras.models import Sequential, load_model, Model
 from tensorflow.keras.layers import Dense, LSTM, Dropout, Conv1D, MaxPooling1D, Flatten, BatchNormalization
+from tensorflow.keras.layers import Input, Concatenate, GlobalAveragePooling1D, Attention, Add, TimeDistributed
+from tensorflow.keras.layers import Bidirectional, GRU, LeakyReLU, PReLU, Reshape, RepeatVector, Lambda
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau, CSVLogger
 from tensorflow.keras.optimizers import Adam, RMSprop
 from sklearn.preprocessing import MinMaxScaler
@@ -293,225 +295,326 @@ class DeepLearningModels:
         print(f"时间序列测试集形状: {self.X_test_ts.shape}")
     
     def create_mlp_model(self, params=None):
-        """创建多层感知机模型"""
+        """创建改进的多层感知机模型，增强时序特征提取能力"""
         if params is None:
             params = {
-                'units1': 256,
-                'units2': 128,
-                'units3': 64,
-                'units4': 32,
-                'dropout': 0.3,
-                'learning_rate': 0.001,
-                'l2_reg': 0.001
+                'units1': 128,  # 减小网络规模，避免过拟合
+                'units2': 64,
+                'units3': 32,
+                'units4': 16,
+                'dropout': 0.2,  # 减小dropout
+                'learning_rate': 0.0005,  # 降低学习率
+                'l2_reg': 0.0001  # 减小正则化强度
             }
         
         from tensorflow.keras.regularizers import l2
         
-        model = Sequential(name="MLP")
+        # 使用函数式API来构建更复杂的模型结构
+        inputs = Input(shape=(self.look_back, len(self.features)))
         
-        # 输入层
-        model.add(BatchNormalization(input_shape=(self.look_back, len(self.features))))
-        model.add(Flatten())
+        # 批归一化输入
+        normalized = BatchNormalization()(inputs)
         
-        # 第一个隐藏层
-        model.add(Dense(params['units1'], activation='relu',
-                       kernel_regularizer=l2(params['l2_reg'])))
-        model.add(BatchNormalization())
-        model.add(Dropout(params['dropout']))
+        # 创建多个不同尺度的时序特征提取分支
+        # 短期特征
+        time_features1 = Conv1D(filters=32, kernel_size=2, padding='same')(normalized)
+        time_features1 = BatchNormalization()(time_features1)
+        time_features1 = PReLU()(time_features1)
+        time_features1 = GlobalAveragePooling1D()(time_features1)
         
-        # 第二个隐藏层
-        model.add(Dense(params['units2'], activation='relu',
-                       kernel_regularizer=l2(params['l2_reg'])))
-        model.add(BatchNormalization())
-        model.add(Dropout(params['dropout']))
+        # 中期特征
+        time_features2 = Conv1D(filters=32, kernel_size=3, padding='same')(normalized)
+        time_features2 = BatchNormalization()(time_features2)
+        time_features2 = PReLU()(time_features2)
+        time_features2 = GlobalAveragePooling1D()(time_features2)
         
-        # 第三个隐藏层
-        model.add(Dense(params['units3'], activation='relu',
-                       kernel_regularizer=l2(params['l2_reg'])))
-        model.add(BatchNormalization())
-        model.add(Dropout(params['dropout']))
+        # 长期特征
+        time_features3 = Conv1D(filters=32, kernel_size=5, padding='same')(normalized)
+        time_features3 = BatchNormalization()(time_features3)
+        time_features3 = PReLU()(time_features3)
+        time_features3 = GlobalAveragePooling1D()(time_features3)
         
-        # 第四个隐藏层
-        model.add(Dense(params['units4'], activation='relu',
-                       kernel_regularizer=l2(params['l2_reg'])))
-        model.add(BatchNormalization())
-        model.add(Dropout(params['dropout']))
+        # 创建全局特征提取分支 - 直接扁平化处理
+        global_features = Flatten()(normalized)
+        
+        # 合并所有特征
+        merged_features = Concatenate()([time_features1, time_features2, time_features3, global_features])
+        
+        # 添加残差连接的深度前馈网络
+        x = Dense(params['units1'], kernel_regularizer=l2(params['l2_reg']))(merged_features)
+        x = BatchNormalization()(x)
+        x = PReLU()(x)  # 使用PReLU代替LeakyReLU
+        x_res1 = x  # 保存用于残差连接
+        
+        x = Dense(params['units2'], kernel_regularizer=l2(params['l2_reg']))(x)
+        x = BatchNormalization()(x)
+        x = PReLU()(x)
+        x = Dropout(params['dropout'])(x)
+        
+        # 第一个残差连接
+        x_res2 = Dense(params['units2'])(x_res1)
+        x = Add()([x, x_res2])
+        
+        x = Dense(params['units3'], kernel_regularizer=l2(params['l2_reg']))(x)
+        x = BatchNormalization()(x)
+        x = PReLU()(x)
+        x = Dropout(params['dropout'])(x)
+        
+        x = Dense(params['units4'], kernel_regularizer=l2(params['l2_reg']))(x)
+        x = BatchNormalization()(x)
+        x = PReLU()(x)
+        
+        # 输出层前的额外层，确保输出稳定性
+        x = Dense(8, activation='linear')(x)
         
         # 输出层
-        model.add(Dense(1))
+        outputs = Dense(1)(x)
+        
+        # 创建模型
+        model = Model(inputs=inputs, outputs=outputs, name="MLP_Enhanced")
         
         # 编译模型
-        optimizer = Adam(learning_rate=params['learning_rate'],
-                        clipnorm=1.0,
-                        clipvalue=0.5)
-        model.compile(optimizer=optimizer,
-                     loss='huber',
-                     metrics=['mae'])
+        optimizer = Adam(
+            learning_rate=params['learning_rate'],
+            clipnorm=0.7,
+            clipvalue=0.3
+        )
+        model.compile(
+            optimizer=optimizer,
+            loss='mse',  # 使用MSE损失函数代替huber
+            metrics=['mae']
+        )
         
         return model
     
     def create_lstm_model(self, params=None):
-        """创建LSTM模型"""
+        """创建改进的LSTM模型，解决过拟合和长期依赖问题"""
         if params is None:
             params = {
-                'lstm_units1': 128,
-                'lstm_units2': 64,
-                'lstm_units3': 32,
-                'dense_units1': 64,
-                'dense_units2': 32,
-                'dropout': 0.3,
-                'learning_rate': 0.001,
-                'l2_reg': 0.001
+                'lstm_units1': 64,  # 减小单元数量
+                'lstm_units2': 32,
+                'dense_units1': 32,
+                'dense_units2': 16,
+                'dropout': 0.2,  # 减小dropout
+                'learning_rate': 0.0008,
+                'l2_reg': 0.0001  # 减小正则化强度
             }
         
         from tensorflow.keras.regularizers import l2
         
-        model = Sequential(name="LSTM")
+        # 使用函数式API构建模型
+        inputs = Input(shape=(self.look_back, len(self.features)))
         
-        # 输入层标准化
-        model.add(BatchNormalization(input_shape=(self.look_back, len(self.features))))
+        # 批归一化输入
+        normalized = BatchNormalization()(inputs)
         
-        # 第一个LSTM层
-        model.add(LSTM(params['lstm_units1'],
-                      return_sequences=True,
-                      kernel_regularizer=l2(params['l2_reg']),
-                      recurrent_regularizer=l2(params['l2_reg'])))
-        model.add(BatchNormalization())
-        model.add(Dropout(params['dropout']))
+        # 使用GRU替代LSTM，减轻计算负担
+        rnn1 = Bidirectional(GRU(
+            params['lstm_units1'],
+            return_sequences=True,
+            kernel_regularizer=l2(params['l2_reg']/2),
+            recurrent_dropout=0.05,  # 很小的循环dropout
+            activation='tanh',
+            reset_after=True  # 使用GRU的reset_after配置提高性能
+        ))(normalized)
+        rnn1 = BatchNormalization()(rnn1)
         
-        # 第二个LSTM层
-        model.add(LSTM(params['lstm_units2'],
-                      return_sequences=True,
-                      kernel_regularizer=l2(params['l2_reg']),
-                      recurrent_regularizer=l2(params['l2_reg'])))
-        model.add(BatchNormalization())
-        model.add(Dropout(params['dropout']))
+        # 简化注意力机制
+        attention_layer = rnn1  # 暂时移除注意力机制，简化网络结构
         
-        # 第三个LSTM层
-        model.add(LSTM(params['lstm_units3'],
-                      kernel_regularizer=l2(params['l2_reg']),
-                      recurrent_regularizer=l2(params['l2_reg'])))
-        model.add(BatchNormalization())
-        model.add(Dropout(params['dropout']))
+        # 捕获全局信息
+        rnn2 = Bidirectional(GRU(
+            params['lstm_units2'],
+            kernel_regularizer=l2(params['l2_reg']/4)  # 进一步减小正则化
+        ))(attention_layer)
+        rnn2 = BatchNormalization()(rnn2)
         
-        # 全连接层
-        model.add(Dense(params['dense_units1'], activation='relu',
-                       kernel_regularizer=l2(params['l2_reg'])))
-        model.add(BatchNormalization())
-        model.add(Dropout(params['dropout']))
+        # 简化后端网络
+        x = Dense(params['dense_units1'])(rnn2)
+        x = BatchNormalization()(x)
+        x = PReLU()(x)
+        x = Dropout(params['dropout']/2)(x)  # 非常小的dropout
         
-        model.add(Dense(params['dense_units2'], activation='relu',
-                       kernel_regularizer=l2(params['l2_reg'])))
-        model.add(BatchNormalization())
-        model.add(Dropout(params['dropout']))
+        x = Dense(params['dense_units2'])(x)
+        x = BatchNormalization()(x)
+        x = PReLU()(x)
         
         # 输出层
-        model.add(Dense(1))
+        outputs = Dense(1)(x)
+        
+        # 创建模型
+        model = Model(inputs=inputs, outputs=outputs, name="GRU_Enhanced")
         
         # 编译模型
-        optimizer = Adam(learning_rate=params['learning_rate'],
-                        clipnorm=1.0,
-                        clipvalue=0.5)
-        model.compile(optimizer=optimizer,
-                     loss='huber',  # 使用Huber损失函数
-                     metrics=['mae'])
+        optimizer = Adam(
+            learning_rate=params['learning_rate'],
+            clipnorm=0.5,
+            clipvalue=0.3,
+            beta_1=0.9,
+            beta_2=0.999,
+            epsilon=1e-07
+        )
+        model.compile(
+            optimizer=optimizer,
+            loss='mse',
+            metrics=['mae']
+        )
         
         return model
     
     def create_cnn_model(self, params=None):
-        """创建一维CNN模型"""
+        """创建改进的CNN模型，解决局部特征提取问题和特征丢失问题"""
         if params is None:
             params = {
-                'filters1': 256,
-                'filters2': 128,
-                'filters3': 64,
-                'filters4': 32,
-                'kernel_size': 5,
+                'filters1': 64,  # 减小滤波器数量
+                'filters2': 32,
+                'filters3': 16,
+                'kernel_size': 3,  # 减小卷积核尺寸
                 'pool_size': 2,
-                'dense_units1': 128,
-                'dense_units2': 64,
-                'dropout': 0.2,
-                'learning_rate': 0.0005,
-                'l2_reg': 0.0005
+                'dense_units1': 32,
+                'dense_units2': 16,
+                'dropout': 0.15,  # 减小dropout
+                'learning_rate': 0.0008,
+                'l2_reg': 0.0001  # 减小正则化强度
             }
         
         from tensorflow.keras.regularizers import l2
-        from tensorflow.keras.layers import Add
         
-        model = Sequential(name="CNN")
+        # 使用函数式API构建模型
+        inputs = Input(shape=(self.look_back, len(self.features)))
         
-        # 第一个卷积层
-        model.add(BatchNormalization(input_shape=(self.look_back, len(self.features))))
-        model.add(Conv1D(filters=params['filters1'],
-                        kernel_size=params['kernel_size'],
-                        activation='relu',
-                        padding='same',
-                        kernel_regularizer=l2(params['l2_reg'])))
-        model.add(BatchNormalization())
-        model.add(MaxPooling1D(pool_size=params['pool_size']))
-        model.add(Dropout(params['dropout']))
+        # 批归一化输入
+        x = BatchNormalization()(inputs)
         
-        # 第二个卷积层
-        model.add(Conv1D(filters=params['filters2'],
-                        kernel_size=params['kernel_size'],
-                        activation='relu',
-                        padding='same',
-                        kernel_regularizer=l2(params['l2_reg'])))
-        model.add(BatchNormalization())
-        model.add(MaxPooling1D(pool_size=params['pool_size']))
-        model.add(Dropout(params['dropout']))
+        # 多分支卷积但更简单
+        # 分支1: 较小卷积核
+        conv1 = Conv1D(
+            filters=params['filters1'],
+            kernel_size=2,
+            padding='same',
+            kernel_regularizer=l2(params['l2_reg']/4)
+        )(x)
+        conv1 = BatchNormalization()(conv1)
+        conv1 = PReLU()(conv1)
         
-        # 第三个卷积层
-        model.add(Conv1D(filters=params['filters3'],
-                        kernel_size=params['kernel_size'],
-                        activation='relu',
-                        padding='same',
-                        kernel_regularizer=l2(params['l2_reg'])))
-        model.add(BatchNormalization())
-        model.add(MaxPooling1D(pool_size=params['pool_size']))
-        model.add(Dropout(params['dropout']))
+        # 分支2: 中等卷积核
+        conv2 = Conv1D(
+            filters=params['filters1'],
+            kernel_size=3,
+            padding='same',
+            kernel_regularizer=l2(params['l2_reg']/4)
+        )(x)
+        conv2 = BatchNormalization()(conv2)
+        conv2 = PReLU()(conv2)
         
-        # 第四个卷积层
-        model.add(Conv1D(filters=params['filters4'],
-                        kernel_size=params['kernel_size'],
-                        activation='relu',
-                        padding='same',
-                        kernel_regularizer=l2(params['l2_reg'])))
-        model.add(BatchNormalization())
-        model.add(Dropout(params['dropout']))
+        # 合并分支
+        merged = Concatenate()([conv1, conv2])
         
-        # 展平层
-        model.add(Flatten())
+        # 添加额外卷积层精炼特征
+        refined = Conv1D(
+            filters=params['filters2'],
+            kernel_size=3,
+            padding='same',
+            kernel_regularizer=l2(params['l2_reg']/4)
+        )(merged)
+        refined = BatchNormalization()(refined)
+        refined = PReLU()(refined)
+        refined = Dropout(params['dropout']/2)(refined)
         
-        # 全连接层
-        model.add(Dense(params['dense_units1'],
-                       activation='relu',
-                       kernel_regularizer=l2(params['l2_reg'])))
-        model.add(BatchNormalization())
-        model.add(Dropout(params['dropout']))
+        # 全局特征和局部特征
+        global_feature = GlobalAveragePooling1D()(refined)
         
-        model.add(Dense(params['dense_units2'],
-                       activation='relu',
-                       kernel_regularizer=l2(params['l2_reg'])))
-        model.add(BatchNormalization())
-        model.add(Dropout(params['dropout']))
+        # 简化后端网络
+        x = Dense(params['dense_units1'])(global_feature)
+        x = BatchNormalization()(x)
+        x = PReLU()(x)
+        x = Dropout(params['dropout'])(x)
+        
+        x = Dense(params['dense_units2'])(x)
+        x = BatchNormalization()(x)
+        x = PReLU()(x)
         
         # 输出层
-        model.add(Dense(1))
+        outputs = Dense(1)(x)
+        
+        # 创建模型
+        model = Model(inputs=inputs, outputs=outputs, name="CNN_Enhanced")
         
         # 编译模型
-        optimizer = Adam(learning_rate=params['learning_rate'],
-                        clipnorm=1.0,
-                        clipvalue=0.5)
-        model.compile(optimizer=optimizer,
-                     loss='huber',
-                     metrics=['mae'])
+        optimizer = Adam(
+            learning_rate=params['learning_rate'],
+            clipnorm=0.5,
+            clipvalue=0.3
+        )
+        model.compile(
+            optimizer=optimizer,
+            loss='mse',
+            metrics=['mae']
+        )
         
         return model
     
+    def test_models(self, epochs=5, batch_size=16):
+        """小规模测试所有模型"""
+        print("\n开始小规模测试...")
+        
+        models_to_test = ['MLP', 'LSTM', 'CNN']
+        results = {}
+        
+        # 创建小规模数据
+        test_size = min(100, len(self.X_train_ts))
+        X_test_small = self.X_train_ts[:test_size]
+        y_test_small = self.y_train_ts[:test_size]
+        
+        print(f"使用{test_size}个样本进行小规模测试")
+        
+        for model_type in models_to_test:
+            print(f"\n测试 {model_type} 模型...")
+            
+            # 创建模型
+            if model_type == 'MLP':
+                model = self.create_mlp_model()
+            elif model_type == 'LSTM':
+                model = self.create_lstm_model()
+            elif model_type == 'CNN':
+                model = self.create_cnn_model()
+            
+            print(f"{model_type} 模型摘要:")
+            model.summary()
+            
+            # 简单训练几个epoch
+            model.fit(
+                X_test_small, y_test_small,
+                epochs=epochs,
+                batch_size=batch_size,
+                verbose=1
+            )
+            
+            # 评估模型
+            loss, mae = model.evaluate(X_test_small, y_test_small, verbose=0)
+            results[model_type] = {'loss': loss, 'mae': mae}
+            
+            # 试一下预测
+            preds = model.predict(X_test_small[:5])
+            actuals = y_test_small[:5]
+            print(f"样本预测结果 vs 实际值:")
+            for i in range(5):
+                print(f"预测: {preds[i][0]:.4f}, 实际: {actuals[i]:.4f}")
+        
+        print("\n小规模测试结果摘要:")
+        for model_type, metrics in results.items():
+            print(f"{model_type}: 损失={metrics['loss']:.4f}, MAE={metrics['mae']:.4f}")
+        
+        return results
+    
     def train_model(self, model_type, params=None, epochs=TRAINING_CONFIG['epochs'], 
-                   batch_size=TRAINING_CONFIG['batch_size'], resume_training=False):
-        """训练模型"""
+                   batch_size=TRAINING_CONFIG['batch_size'], resume_training=False,
+                   run_small_test=False):
+        """训练模型，可选是否先进行小规模测试"""
+        
+        # 如果需要先进行小规模测试
+        if run_small_test:
+            self.test_models(epochs=5, batch_size=batch_size//2)
         
         # 生成时间戳
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -623,6 +726,8 @@ class DeepLearningModels:
         self.predictions[model_type] = predictions
         
         # 计算评估指标
+        
+        # 计算平均百分比误差
         mse = mean_squared_error(actual, predictions)
         rmse = np.sqrt(mse)
         mae = mean_absolute_error(actual, predictions)
