@@ -1,0 +1,322 @@
+{% extends 'base.html' %}
+
+{% block title %}新闻资讯 - 豆粕期货价格预测系统{% endblock %}
+
+{% block head %}
+<style>
+    .news-card {
+        transition: all 0.3s ease;
+        margin-bottom: 20px;
+    }
+    .news-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    }
+    .news-img {
+        height: 200px;
+        object-fit: cover;
+    }
+    .news-tag {
+        font-size: 0.8rem;
+    }
+    .news-date {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    .news-source {
+        font-style: italic;
+        color: #6c757d;
+    }
+    .featured-news {
+        position: relative;
+        overflow: hidden;
+        border-radius: 5px;
+        margin-bottom: 30px;
+    }
+    .featured-news img {
+        width: 100%;
+        height: 400px;
+        object-fit: cover;
+    }
+    .featured-news-content {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        padding: 20px;
+        background: linear-gradient(to top, rgba(0,0,0,0.8), rgba(0,0,0,0));
+        color: white;
+    }
+    .featured-news-tag {
+        background-color: #dc3545;
+        color: white;
+        padding: 3px 10px;
+        border-radius: 3px;
+        font-size: 0.8rem;
+        margin-bottom: 10px;
+        display: inline-block;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h2><i class="bi bi-newspaper"></i> 豆粕期货新闻资讯</h2>
+            <p class="lead">了解最新的市场动态、政策变化和行业趋势</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <div class="input-group">
+                <input type="text" class="form-control" placeholder="搜索新闻..." aria-label="搜索新闻">
+                <button class="btn btn-primary" type="button"><i class="bi bi-search"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 头条新闻 -->
+    <div class="featured-news">
+        <img src="https://via.placeholder.com/1200x400" alt="头条新闻图片">
+        <div class="featured-news-content">
+            <span class="featured-news-tag">头条</span>
+            <h2>中国大豆进口量创新高，豆粕价格承压</h2>
+            <p>据海关总署数据显示，今年第一季度中国大豆进口量同比增长15.2%，创历史新高。分析师认为，进口量增加将导致豆粕供应充足，短期内价格可能承压。</p>
+            <div class="d-flex justify-content-between align-items-center">
+                <span class="news-date"><i class="bi bi-calendar3"></i> 2023-05-03</span>
+                <a href="#" class="btn btn-sm btn-light">阅读全文</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新闻分类标签 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex flex-wrap gap-2">
+                <a href="#" class="btn btn-sm btn-primary active">全部</a>
+                <a href="#" class="btn btn-sm btn-outline-primary">市场动态</a>
+                <a href="#" class="btn btn-sm btn-outline-primary">政策法规</a>
+                <a href="#" class="btn btn-sm btn-outline-primary">行业分析</a>
+                <a href="#" class="btn btn-sm btn-outline-primary">国际资讯</a>
+                <a href="#" class="btn btn-sm btn-outline-primary">企业新闻</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新闻列表 -->
+    <div class="row">
+        <div class="col-md-8">
+            <!-- 新闻卡片 -->
+            <div class="card news-card">
+                <div class="row g-0">
+                    <div class="col-md-4">
+                        <img src="https://via.placeholder.com/300x200" class="img-fluid news-img" alt="新闻图片">
+                    </div>
+                    <div class="col-md-8">
+                        <div class="card-body">
+                            <span class="badge bg-primary news-tag">市场动态</span>
+                            <h5 class="card-title mt-2">全球大豆产量预测报告发布，市场波动加剧</h5>
+                            <p class="card-text">美国农业部发布最新全球大豆产量预测报告，预计本年度全球大豆产量将达到3.68亿吨，较上年增长2.5%。报告发布后，芝加哥期货交易所大豆期货价格出现波动。</p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <span class="news-date"><i class="bi bi-calendar3"></i> 2023-05-02</span>
+                                    <span class="news-source ms-3"><i class="bi bi-building"></i> 农业经济网</span>
+                                </div>
+                                <a href="#" class="btn btn-sm btn-outline-primary">阅读全文</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card news-card">
+                <div class="row g-0">
+                    <div class="col-md-4">
+                        <img src="https://via.placeholder.com/300x200" class="img-fluid news-img" alt="新闻图片">
+                    </div>
+                    <div class="col-md-8">
+                        <div class="card-body">
+                            <span class="badge bg-success news-tag">行业分析</span>
+                            <h5 class="card-title mt-2">饲料需求增长，豆粕期货价格有望上涨</h5>
+                            <p class="card-text">随着畜牧业复苏和养殖规模扩大，国内饲料需求持续增长。分析师预计，下半年豆粕需求将进一步提升，期货价格有望走高。</p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <span class="news-date"><i class="bi bi-calendar3"></i> 2023-05-01</span>
+                                    <span class="news-source ms-3"><i class="bi bi-building"></i> 期货日报</span>
+                                </div>
+                                <a href="#" class="btn btn-sm btn-outline-primary">阅读全文</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card news-card">
+                <div class="row g-0">
+                    <div class="col-md-4">
+                        <img src="https://via.placeholder.com/300x200" class="img-fluid news-img" alt="新闻图片">
+                    </div>
+                    <div class="col-md-8">
+                        <div class="card-body">
+                            <span class="badge bg-info news-tag">国际资讯</span>
+                            <h5 class="card-title mt-2">巴西大豆收获进度超预期，出口量创新高</h5>
+                            <p class="card-text">巴西农业部数据显示，截至4月底，巴西大豆收获进度已达95%，高于去年同期的92%。同时，一季度大豆出口量达到2250万吨，同比增长12%，创历史新高。</p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <span class="news-date"><i class="bi bi-calendar3"></i> 2023-04-30</span>
+                                    <span class="news-source ms-3"><i class="bi bi-building"></i> 国际商报</span>
+                                </div>
+                                <a href="#" class="btn btn-sm btn-outline-primary">阅读全文</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card news-card">
+                <div class="row g-0">
+                    <div class="col-md-4">
+                        <img src="https://via.placeholder.com/300x200" class="img-fluid news-img" alt="新闻图片">
+                    </div>
+                    <div class="col-md-8">
+                        <div class="card-body">
+                            <span class="badge bg-warning news-tag">政策法规</span>
+                            <h5 class="card-title mt-2">农业农村部发布大豆振兴计划，提高国内大豆自给率</h5>
+                            <p class="card-text">农业农村部近日发布《大豆振兴计划实施方案》，提出到2025年大豆种植面积稳定在1.4亿亩以上，自给率提高到40%以上的目标。</p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <span class="news-date"><i class="bi bi-calendar3"></i> 2023-04-28</span>
+                                    <span class="news-source ms-3"><i class="bi bi-building"></i> 中国农业新闻网</span>
+                                </div>
+                                <a href="#" class="btn btn-sm btn-outline-primary">阅读全文</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 分页 -->
+            <nav class="mt-4">
+                <ul class="pagination justify-content-center">
+                    <li class="page-item disabled">
+                        <a class="page-link" href="#" tabindex="-1" aria-disabled="true">上一页</a>
+                    </li>
+                    <li class="page-item active"><a class="page-link" href="#">1</a></li>
+                    <li class="page-item"><a class="page-link" href="#">2</a></li>
+                    <li class="page-item"><a class="page-link" href="#">3</a></li>
+                    <li class="page-item">
+                        <a class="page-link" href="#">下一页</a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+
+        <div class="col-md-4">
+            <!-- 热门新闻 -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-fire"></i> 热门新闻</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item px-0">
+                            <a href="#" class="text-decoration-none">中美贸易关系改善，大豆进口政策或将调整</a>
+                            <div class="small text-muted mt-1">
+                                <i class="bi bi-eye"></i> 2,345 阅读 · <i class="bi bi-calendar3"></i> 2023-04-27
+                            </div>
+                        </li>
+                        <li class="list-group-item px-0">
+                            <a href="#" class="text-decoration-none">豆粕期货主力合约创年内新高，后市如何走？</a>
+                            <div class="small text-muted mt-1">
+                                <i class="bi bi-eye"></i> 1,987 阅读 · <i class="bi bi-calendar3"></i> 2023-04-25
+                            </div>
+                        </li>
+                        <li class="list-group-item px-0">
+                            <a href="#" class="text-decoration-none">深度分析：气候变化对全球大豆产量的影响</a>
+                            <div class="small text-muted mt-1">
+                                <i class="bi bi-eye"></i> 1,756 阅读 · <i class="bi bi-calendar3"></i> 2023-04-23
+                            </div>
+                        </li>
+                        <li class="list-group-item px-0">
+                            <a href="#" class="text-decoration-none">豆粕期货交易技巧：如何把握季节性规律</a>
+                            <div class="small text-muted mt-1">
+                                <i class="bi bi-eye"></i> 1,543 阅读 · <i class="bi bi-calendar3"></i> 2023-04-20
+                            </div>
+                        </li>
+                        <li class="list-group-item px-0">
+                            <a href="#" class="text-decoration-none">国内大豆压榨企业产能利用率提升至85%</a>
+                            <div class="small text-muted mt-1">
+                                <i class="bi bi-eye"></i> 1,298 阅读 · <i class="bi bi-calendar3"></i> 2023-04-18
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- 订阅新闻 -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-envelope"></i> 订阅资讯</h5>
+                </div>
+                <div class="card-body">
+                    <p>订阅我们的新闻通讯，获取最新的豆粕期货市场资讯和分析报告。</p>
+                    <form>
+                        <div class="mb-3">
+                            <input type="email" class="form-control" placeholder="您的邮箱地址">
+                        </div>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-send"></i> 立即订阅
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- 市场日历 -->
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-calendar-event"></i> 市场日历</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item px-0">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <strong>USDA大豆产量报告</strong>
+                                    <div class="small text-muted">美国农业部</div>
+                                </div>
+                                <span class="badge bg-primary">05-10</span>
+                            </div>
+                        </li>
+                        <li class="list-group-item px-0">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <strong>豆粕期货交割日</strong>
+                                    <div class="small text-muted">大连商品交易所</div>
+                                </div>
+                                <span class="badge bg-primary">05-15</span>
+                            </div>
+                        </li>
+                        <li class="list-group-item px-0">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <strong>全球油脂油料峰会</strong>
+                                    <div class="small text-muted">北京</div>
+                                </div>
+                                <span class="badge bg-primary">05-20</span>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // 这里可以添加新闻页面特定的JavaScript代码
+    // 例如新闻搜索、过滤等功能
+</script>
+{% endblock %}

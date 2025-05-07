@@ -1,0 +1,528 @@
+{% extends 'base.html' %}
+
+{% block title %}行情展示 - 豆粕期货价格预测系统{% endblock %}
+
+{% block head %}
+<style>
+    .market-card {
+        transition: all 0.3s ease;
+    }
+    .market-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    }
+    .price-up {
+        color: #28a745;
+    }
+    .price-down {
+        color: #dc3545;
+    }
+    .price-display {
+        font-size: 2rem;
+        font-weight: bold;
+    }
+    .chart-container {
+        position: relative;
+        height: 300px;
+        margin-bottom: 20px;
+    }
+    .market-table th, .market-table td {
+        text-align: center;
+        vertical-align: middle;
+    }
+    .market-table .trend-icon {
+        font-size: 1.2rem;
+    }
+    .ticker-wrap {
+        width: 100%;
+        overflow: hidden;
+        background-color: #f8f9fa;
+        padding: 10px 0;
+        margin-bottom: 20px;
+    }
+    .ticker {
+        display: inline-block;
+        white-space: nowrap;
+        padding-right: 100%;
+        animation-iteration-count: infinite;
+        animation-timing-function: linear;
+        animation-name: ticker;
+        animation-duration: 30s;
+    }
+    .ticker-item {
+        display: inline-block;
+        padding: 0 20px;
+    }
+    @keyframes ticker {
+        0% {
+            transform: translate3d(0, 0, 0);
+        }
+        100% {
+            transform: translate3d(-100%, 0, 0);
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h2><i class="bi bi-currency-exchange"></i> 豆粕期货行情</h2>
+            <p class="lead">实时掌握市场动态，把握交易机会</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <div class="btn-group" role="group">
+                <button type="button" class="btn btn-outline-primary" id="refreshMarketBtn">
+                    <i class="bi bi-arrow-clockwise"></i> 刷新行情
+                </button>
+                <button type="button" class="btn btn-outline-primary" id="exportDataBtn">
+                    <i class="bi bi-download"></i> 导出数据
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 行情走马灯 -->
+    <div class="ticker-wrap">
+        <div class="ticker">
+            <div class="ticker-item">
+                <span class="fw-bold">豆粕2305:</span>
+                <span class="price-up">3,456.00 <i class="bi bi-arrow-up-right"></i> +2.5%</span>
+            </div>
+            <div class="ticker-item">
+                <span class="fw-bold">豆粕2307:</span>
+                <span class="price-up">3,478.00 <i class="bi bi-arrow-up-right"></i> +1.8%</span>
+            </div>
+            <div class="ticker-item">
+                <span class="fw-bold">豆粕2309:</span>
+                <span class="price-down">3,445.00 <i class="bi bi-arrow-down-right"></i> -0.3%</span>
+            </div>
+            <div class="ticker-item">
+                <span class="fw-bold">豆粕2311:</span>
+                <span class="price-up">3,462.00 <i class="bi bi-arrow-up-right"></i> +0.7%</span>
+            </div>
+            <div class="ticker-item">
+                <span class="fw-bold">大豆2305:</span>
+                <span class="price-up">5,876.00 <i class="bi bi-arrow-up-right"></i> +1.2%</span>
+            </div>
+            <div class="ticker-item">
+                <span class="fw-bold">豆油2305:</span>
+                <span class="price-down">9,234.00 <i class="bi bi-arrow-down-right"></i> -0.5%</span>
+            </div>
+            <div class="ticker-item">
+                <span class="fw-bold">棕榈油2305:</span>
+                <span class="price-up">8,123.00 <i class="bi bi-arrow-up-right"></i> +0.9%</span>
+            </div>
+            <div class="ticker-item">
+                <span class="fw-bold">菜粕2305:</span>
+                <span class="price-down">2,987.00 <i class="bi bi-arrow-down-right"></i> -0.2%</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 主力合约行情卡片 -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card market-card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">豆粕2305 (主力合约)</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span class="price-display price-up">3,456.00</span>
+                        <div class="text-end">
+                            <div class="price-up">
+                                <i class="bi bi-arrow-up-right"></i> +84.00
+                            </div>
+                            <div class="price-up">+2.5%</div>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="mainContractChart"></canvas>
+                    </div>
+                    <div class="row text-center">
+                        <div class="col-4">
+                            <div class="small text-muted">开盘</div>
+                            <div>3,420.00</div>
+                        </div>
+                        <div class="col-4">
+                            <div class="small text-muted">最高</div>
+                            <div class="price-up">3,468.00</div>
+                        </div>
+                        <div class="col-4">
+                            <div class="small text-muted">最低</div>
+                            <div class="price-down">3,415.00</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer bg-light">
+                    <div class="row text-center">
+                        <div class="col-4">
+                            <div class="small text-muted">成交量</div>
+                            <div>125,678</div>
+                        </div>
+                        <div class="col-4">
+                            <div class="small text-muted">持仓量</div>
+                            <div>287,456</div>
+                        </div>
+                        <div class="col-4">
+                            <div class="small text-muted">结算价</div>
+                            <div>3,450.00</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-8">
+            <div class="card market-card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">豆粕期货合约排行</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover market-table mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>合约</th>
+                                    <th>最新价</th>
+                                    <th>涨跌</th>
+                                    <th>涨跌幅</th>
+                                    <th>开盘价</th>
+                                    <th>最高价</th>
+                                    <th>最低价</th>
+                                    <th>成交量</th>
+                                    <th>持仓量</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td class="fw-bold">豆粕2305</td>
+                                    <td>3,456.00</td>
+                                    <td class="price-up">+84.00</td>
+                                    <td class="price-up">+2.5% <i class="bi bi-arrow-up-right trend-icon"></i></td>
+                                    <td>3,420.00</td>
+                                    <td>3,468.00</td>
+                                    <td>3,415.00</td>
+                                    <td>125,678</td>
+                                    <td>287,456</td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-bold">豆粕2307</td>
+                                    <td>3,478.00</td>
+                                    <td class="price-up">+62.00</td>
+                                    <td class="price-up">+1.8% <i class="bi bi-arrow-up-right trend-icon"></i></td>
+                                    <td>3,440.00</td>
+                                    <td>3,485.00</td>
+                                    <td>3,438.00</td>
+                                    <td>98,765</td>
+                                    <td>176,543</td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-bold">豆粕2309</td>
+                                    <td>3,445.00</td>
+                                    <td class="price-down">-10.00</td>
+                                    <td class="price-down">-0.3% <i class="bi bi-arrow-down-right trend-icon"></i></td>
+                                    <td>3,455.00</td>
+                                    <td>3,460.00</td>
+                                    <td>3,442.00</td>
+                                    <td>76,543</td>
+                                    <td>145,678</td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-bold">豆粕2311</td>
+                                    <td>3,462.00</td>
+                                    <td class="price-up">+24.00</td>
+                                    <td class="price-up">+0.7% <i class="bi bi-arrow-up-right trend-icon"></i></td>
+                                    <td>3,450.00</td>
+                                    <td>3,465.00</td>
+                                    <td>3,448.00</td>
+                                    <td>54,321</td>
+                                    <td>98,765</td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-bold">豆粕2401</td>
+                                    <td>3,470.00</td>
+                                    <td class="price-up">+15.00</td>
+                                    <td class="price-up">+0.4% <i class="bi bi-arrow-up-right trend-icon"></i></td>
+                                    <td>3,460.00</td>
+                                    <td>3,475.00</td>
+                                    <td>3,458.00</td>
+                                    <td>32,456</td>
+                                    <td>76,543</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 市场分析和相关品种 -->
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card market-card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-graph-up"></i> 豆粕期货日K线图</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container" style="height: 400px;">
+                        <canvas id="candlestickChart"></canvas>
+                    </div>
+                    <div class="d-flex justify-content-center mt-2">
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-sm btn-outline-secondary">日K</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary">周K</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary">月K</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary">分时</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card market-card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-bar-chart"></i> 市场分析</h5>
+                </div>
+                <div class="card-body">
+                    <h5>技术面分析</h5>
+                    <p>豆粕主力合约2305今日强势上涨2.5%，突破前期高点3,450元/吨，MACD指标金叉，KDJ指标进入超买区域，短期有望继续上行。但需注意，RSI指标已达到68，接近超买区域，后市可能面临回调压力。</p>
+                    
+                    <h5 class="mt-4">基本面分析</h5>
+                    <p>国内豆粕库存持续下降，截至上周五，全国豆粕库存为65.2万吨，环比减少5.3%。同时，随着生猪养殖规模扩大，饲料需求持续增长，支撑豆粕价格上涨。但需关注美豆种植进度和南美大豆产量情况，这可能对后市形成压制。</p>
+                    
+                    <h5 class="mt-4">交易建议</h5>
+                    <p>短期可考虑逢低做多策略，关注3,420元/吨支撑位和3,480元/吨压力位。中长期投资者可等待回调至3,400元/吨附近再考虑入场。</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card market-card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-link-45deg"></i> 相关品种</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush">
+                        <a href="#" class="list-group-item list-group-item-action">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-0">大豆主力</h6>
+                                    <small class="text-muted">DCDL2305</small>
+                                </div>
+                                <div class="text-end">
+                                    <div>5,876.00</div>
+                                    <div class="price-up">+1.2% <i class="bi bi-arrow-up-right"></i></div>
+                                </div>
+                            </div>
+                        </a>
+                        <a href="#" class="list-group-item list-group-item-action">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-0">豆油主力</h6>
+                                    <small class="text-muted">DCDY2305</small>
+                                </div>
+                                <div class="text-end">
+                                    <div>9,234.00</div>
+                                    <div class="price-down">-0.5% <i class="bi bi-arrow-down-right"></i></div>
+                                </div>
+                            </div>
+                        </a>
+                        <a href="#" class="list-group-item list-group-item-action">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-0">棕榈油主力</h6>
+                                    <small class="text-muted">DCZLY2305</small>
+                                </div>
+                                <div class="text-end">
+                                    <div>8,123.00</div>
+                                    <div class="price-up">+0.9% <i class="bi bi-arrow-up-right"></i></div>
+                                </div>
+                            </div>
+                        </a>
+                        <a href="#" class="list-group-item list-group-item-action">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-0">菜粕主力</h6>
+                                    <small class="text-muted">DCCM2305</small>
+                                </div>
+                                <div class="text-end">
+                                    <div>2,987.00</div>
+                                    <div class="price-down">-0.2% <i class="bi bi-arrow-down-right"></i></div>
+                                </div>
+                            </div>
+                        </a>
+                        <a href="#" class="list-group-item list-group-item-action">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-0">玉米主力</h6>
+                                    <small class="text-muted">DCYM2305</small>
+                                </div>
+                                <div class="text-end">
+                                    <div>2,765.00</div>
+                                    <div class="price-up">+0.6% <i class="bi bi-arrow-up-right"></i></div>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card market-card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-calendar-check"></i> 交易日历</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>日期</th>
+                                    <th>事件</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>05-10</td>
+                                    <td>USDA大豆产量报告</td>
+                                </tr>
+                                <tr>
+                                    <td>05-15</td>
+                                    <td>豆粕期货交割日</td>
+                                </tr>
+                                <tr>
+                                    <td>05-20</td>
+                                    <td>全球油脂油料峰会</td>
+                                </tr>
+                                <tr>
+                                    <td>05-25</td>
+                                    <td>美豆种植进度报告</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card market-card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-bell"></i> 价格预警</h5>
+                </div>
+                <div class="card-body">
+                    <p>设置价格预警，当价格达到您设定的条件时，系统将通知您。</p>
+                    <form>
+                        <div class="mb-3">
+                            <label for="contractSelect" class="form-label">合约</label>
+                            <select class="form-select" id="contractSelect">
+                                <option selected>豆粕2305</option>
+                                <option>豆粕2307</option>
+                                <option>豆粕2309</option>
+                                <option>豆粕2311</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="alertType" class="form-label">预警类型</label>
+                            <select class="form-select" id="alertType">
+                                <option selected>价格上涨至</option>
+                                <option>价格下跌至</option>
+                                <option>涨幅超过</option>
+                                <option>跌幅超过</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="alertValue" class="form-label">预警值</label>
+                            <input type="number" class="form-control" id="alertValue" placeholder="例如：3500">
+                        </div>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-plus-circle"></i> 添加预警
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // 主力合约分时图
+    const mainContractCtx = document.getElementById('mainContractChart').getContext('2d');
+    const mainContractChart = new Chart(mainContractCtx, {
+        type: 'line',
+        data: {
+            labels: ['09:00', '10:00', '11:00', '13:30', '14:30', '15:00'],
+            datasets: [{
+                label: '价格',
+                data: [3420, 3435, 3450, 3445, 3460, 3456],
+                borderColor: 'rgb(75, 192, 192)',
+                backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                tension: 0.1,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                x: {
+                    grid: {
+                        display: false
+                    }
+                },
+                y: {
+                    beginAtZero: false
+                }
+            }
+        }
+    });
+
+    // 模拟K线图数据
+    const candlestickCtx = document.getElementById('candlestickChart').getContext('2d');
+    // 在实际应用中，这里应该使用专门的K线图库，如TradingView或ECharts
+    // 这里使用Chart.js简单模拟
+    const candlestickChart = new Chart(candlestickCtx, {
+        type: 'bar',
+        data: {
+            labels: ['04-27', '04-28', '04-29', '04-30', '05-01', '05-02', '05-03'],
+            datasets: [{
+                label: '价格范围',
+                data: [3380, 3390, 3400, 3390, 3380, 3420, 3456],
+                backgroundColor: function(context) {
+                    const index = context.dataIndex;
+                    const value = context.dataset.data[index];
+                    const previousValue = index > 0 ? context.dataset.data[index - 1] : value;
+                    return value > previousValue ? 'rgba(40, 167, 69, 0.7)' : 'rgba(220, 53, 69, 0.7)';
+                },
+                borderColor: 'rgba(0, 0, 0, 0.1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: false
+                }
+            }
+        }
+    });
+
+    // 添加按钮事件监听器
+    document.getElementById('refreshMarketBtn').addEventListener('click', function() {
+        alert('行情数据刷新功能将在此处实现');
+    });
+
+    document.getElementById('exportDataBtn').addEventListener('click', function() {
+        alert('数据导出功能将在此处实现');
+    });
+</script>
+{% endblock %}

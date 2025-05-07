@@ -1,0 +1,82 @@
+[
+    {
+        "id": 1,
+        "username": "管理员",
+        "avatar": "https://via.placeholder.com/40",
+        "role": "admin",
+        "posts": 56,
+        "replies": 234,
+        "join_date": "2023-01-01",
+        "last_active": "2023-05-03"
+    },
+    {
+        "id": 2,
+        "username": "交易达人",
+        "avatar": "https://via.placeholder.com/40",
+        "role": "user",
+        "posts": 87,
+        "replies": 342,
+        "join_date": "2023-01-15",
+        "last_active": "2023-05-03"
+    },
+    {
+        "id": 3,
+        "username": "AI研究者",
+        "avatar": "https://via.placeholder.com/40",
+        "role": "user",
+        "posts": 45,
+        "replies": 156,
+        "join_date": "2023-02-05",
+        "last_active": "2023-05-02"
+    },
+    {
+        "id": 4,
+        "username": "期货老手",
+        "avatar": "https://via.placeholder.com/40",
+        "role": "user",
+        "posts": 123,
+        "replies": 567,
+        "join_date": "2023-01-10",
+        "last_active": "2023-05-03"
+    },
+    {
+        "id": 5,
+        "username": "市场分析师",
+        "avatar": "https://via.placeholder.com/40",
+        "role": "user",
+        "posts": 67,
+        "replies": 289,
+        "join_date": "2023-02-20",
+        "last_active": "2023-05-03"
+    },
+    {
+        "id": 6,
+        "username": "期货新手",
+        "avatar": "https://via.placeholder.com/40",
+        "role": "user",
+        "posts": 12,
+        "replies": 45,
+        "join_date": "2023-04-10",
+        "last_active": "2023-05-02"
+    },
+    {
+        "id": 7,
+        "username": "技术派",
+        "avatar": "https://via.placeholder.com/40",
+        "role": "user",
+        "posts": 34,
+        "replies": 123,
+        "join_date": "2023-03-15",
+        "last_active": "2023-05-02"
+    },
+    {
+        "id": 8,
+        "username": "基本面研究",
+        "avatar": "https://via.placeholder.com/40",
+        "role": "user",
+        "posts": 56,
+        "replies": 234,
+        "join_date": "2023-02-28",
+        "last_active": "2023-05-01"
+    }
+]

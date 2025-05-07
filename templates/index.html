@@ -1,0 +1,136 @@
+{% extends 'base.html' %}
+
+{% block title %}首页 - 豆粕期货价格预测系统{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <div class="card mb-4 shadow-sm">
+            <div class="card-body">
+                <h1 class="display-5">豆粕期货价格预测系统</h1>
+                <p class="lead">基于深度学习技术，为您提供精准的豆粕期货价格预测分析</p>
+                <hr class="my-4">
+                <p>本系统利用先进的深度学习算法，结合历史数据和市场因素，为您提供豆粕期货价格的预测分析。</p>
+                <div class="d-grid gap-2 d-md-flex justify-content-md-start">
+                    <a href="{{ url_for('visualization.view_data') }}" class="btn btn-primary btn-lg px-4 me-md-2">
+                        <i class="bi bi-bar-chart"></i> 查看数据分析
+                    </a>
+                    <a href="#" class="btn btn-outline-secondary btn-lg px-4">
+                        <i class="bi bi-newspaper"></i> 浏览市场资讯
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <i class="bi bi-lightning"></i> 实时行情
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h5 class="mb-0">豆粕主力合约</h5>
+                    <span class="badge bg-success">+2.5%</span>
+                </div>
+                <h2 class="price-display">3,456.00</h2>
+                <div class="text-muted small">更新时间: 2023-05-03 15:30:45</div>
+                <hr>
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <div class="small text-muted">开盘</div>
+                        <div>3,420.00</div>
+                    </div>
+                    <div>
+                        <div class="small text-muted">最高</div>
+                        <div>3,468.00</div>
+                    </div>
+                    <div>
+                        <div class="small text-muted">最低</div>
+                        <div>3,415.00</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-4">
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <i class="bi bi-newspaper"></i> 最新资讯
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled">
+                    <li class="mb-2">
+                        <a href="{{ url_for('news.detail', news_id=1) }}" class="text-decoration-none">中国大豆进口量创新高，豆粕价格承压</a>
+                        <div class="small text-muted">2023-05-03</div>
+                    </li>
+                    <li class="mb-2">
+                        <a href="{{ url_for('news.detail', news_id=2) }}" class="text-decoration-none">全球大豆产量预测报告发布，市场波动加剧</a>
+                        <div class="small text-muted">2023-05-02</div>
+                    </li>
+                    <li class="mb-2">
+                        <a href="{{ url_for('news.detail', news_id=3) }}" class="text-decoration-none">饲料需求增长，豆粕期货价格有望上涨</a>
+                        <div class="small text-muted">2023-05-01</div>
+                    </li>
+                </ul>
+                <a href="{{ url_for('news.index') }}" class="btn btn-sm btn-outline-primary">查看更多</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <i class="bi bi-graph-up"></i> 预测分析
+            </div>
+            <div class="card-body">
+                <h5 class="card-title">未来趋势预测</h5>
+                <div class="prediction-indicator">
+                    <div class="progress mb-2">
+                        <div class="progress-bar bg-success" role="progressbar" style="width: 65%" aria-valuenow="65" aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span class="small">看跌</span>
+                        <span class="small fw-bold">65%</span>
+                        <span class="small">看涨</span>
+                    </div>
+                </div>
+                <p class="mt-3">根据深度学习模型分析，豆粕期货价格未来一周有65%的概率上涨。</p>
+                <a href="{{ url_for('visualization.view_data') }}" class="btn btn-sm btn-outline-primary">详细分析</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <i class="bi bi-chat-dots"></i> 热门讨论
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled">
+                    <li class="mb-2">
+                        <a href="{{ url_for('forum.topic', topic_id=2) }}" class="text-decoration-none">如何看待近期豆粕价格波动？</a>
+                        <div class="small text-muted">32 回复 · 2 小时前</div>
+                    </li>
+                    <li class="mb-2">
+                        <a href="{{ url_for('forum.topic', topic_id=3) }}" class="text-decoration-none">深度学习模型在期货预测中的应用</a>
+                        <div class="small text-muted">18 回复 · 5 小时前</div>
+                    </li>
+                    <li class="mb-2">
+                        <a href="{{ url_for('forum.topic', topic_id=4) }}" class="text-decoration-none">豆粕期货交易策略分享</a>
+                        <div class="small text-muted">45 回复 · 1 天前</div>
+                    </li>
+                </ul>
+                <a href="{{ url_for('forum.index') }}" class="btn btn-sm btn-outline-primary">进入论坛</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // 这里可以添加首页特定的JavaScript代码
+    // 例如实时数据更新、图表展示等
+</script>
+{% endblock %}

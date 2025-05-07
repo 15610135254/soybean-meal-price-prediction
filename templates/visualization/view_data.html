@@ -1,0 +1,1160 @@
+{% extends 'base.html' %}
+
+{% block title %}数据可视化 - 豆粕期货价格预测系统{% endblock %}
+
+{% block head %}
+    <!-- 引入 Chart.js 和其他需要的库 -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom"></script>
+    <style>
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin-bottom: 30px;
+        }
+        .data-card {
+            transition: all 0.3s ease;
+        }
+        .data-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        .data-controls {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .prediction-badge {
+            font-size: 1.2rem;
+            padding: 8px 15px;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h2><i class="bi bi-bar-chart"></i> 豆粕期货数据分析</h2>
+            <p class="lead">通过深度学习模型分析历史数据，预测未来价格走势</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <div class="btn-group" role="group">
+                <button type="button" class="btn btn-outline-primary" id="downloadDataBtn">
+                    <i class="bi bi-download"></i> 下载数据
+                </button>
+                <button type="button" class="btn btn-outline-primary" id="refreshDataBtn">
+                    <i class="bi bi-arrow-clockwise"></i> 刷新
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 数据控制面板 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card data-controls">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <label for="timeRangeSelect" class="form-label">时间范围</label>
+                            <select class="form-select" id="timeRangeSelect">
+                                <option value="7">最近一周</option>
+                                <option value="30" selected>最近一个月</option>
+                                <option value="90">最近三个月</option>
+                                <option value="180">最近六个月</option>
+                                <option value="365">最近一年</option>
+                                <option value="all">全部数据</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="modelSelect" class="form-label">预测模型</label>
+                            <select class="form-select" id="modelSelect">
+                                <option value="mlp" selected>MLP模型</option>
+                                <option value="lstm">LSTM模型</option>
+                                <option value="cnn">CNN模型</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="predictionRange" class="form-label">预测天数</label>
+                            <select class="form-select" id="predictionRange">
+                                <option value="3">3天</option>
+                                <option value="7" selected>7天</option>
+                                <option value="14">14天</option>
+                                <option value="30">30天</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">&nbsp;</label>
+                            <button class="btn btn-primary w-100" id="applyFiltersBtn">
+                                <i class="bi bi-funnel"></i> 应用筛选
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 价格预测卡片 -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card data-card bg-light">
+                <div class="card-body text-center">
+                    <h5 class="card-title">当前价格</h5>
+                    <h2 class="display-5 fw-bold">3,456.00</h2>
+                    <p class="text-success">
+                        <i class="bi bi-arrow-up"></i> +2.5% (今日)
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card data-card bg-light">
+                <div class="card-body text-center">
+                    <h5 class="card-title">预测价格 (7天后)</h5>
+                    <h2 class="display-5 fw-bold">3,520.00</h2>
+                    <p class="text-success">
+                        <i class="bi bi-arrow-up"></i> +1.85% (预期)
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card data-card bg-light">
+                <div class="card-body text-center">
+                    <h5 class="card-title">模型准确率</h5>
+                    <div class="progress mb-3" style="height: 25px;">
+                        <div class="progress-bar bg-success" role="progressbar" style="width: 87%;" aria-valuenow="87" aria-valuemin="0" aria-valuemax="100">87%</div>
+                    </div>
+                    <p class="text-muted">基于LSTM模型历史表现</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 主图表 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-graph-up"></i> 豆粕期货价格走势与预测</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <div id="chartLoadingIndicator" class="text-center p-5">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">加载中...</span>
+                            </div>
+                            <p class="mt-3">正在加载图表数据...</p>
+                        </div>
+                        <canvas id="closingPriceChart" style="display: none;"></canvas>
+                    </div>
+                    <div class="d-flex justify-content-center">
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="zoomInBtn">
+                                <i class="bi bi-zoom-in"></i> 放大
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="zoomOutBtn">
+                                <i class="bi bi-zoom-out"></i> 缩小
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="resetZoomBtn">
+                                <i class="bi bi-arrow-counterclockwise"></i> 重置
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="toggleDebugBtn">
+                                <i class="bi bi-bug"></i> 调试信息
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 调试信息区域 -->
+                    <div id="debugInfo" class="mt-3 p-3 bg-light" style="display: none; overflow: auto; max-height: 200px; font-family: monospace; font-size: 12px;">
+                        <h6>调试信息</h6>
+                        <div id="debugContent"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 数据表格和其他指标 -->
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-table"></i> 历史数据</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>日期</th>
+                                    <th>开盘价</th>
+                                    <th>最高价</th>
+                                    <th>最低价</th>
+                                    <th>收盘价</th>
+                                    <th>成交量</th>
+                                    <th>涨跌幅</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>2023-05-03</td>
+                                    <td>3,420.00</td>
+                                    <td>3,468.00</td>
+                                    <td>3,415.00</td>
+                                    <td>3,456.00</td>
+                                    <td>125,678</td>
+                                    <td class="text-success">+2.5%</td>
+                                </tr>
+                                <tr>
+                                    <td>2023-05-02</td>
+                                    <td>3,380.00</td>
+                                    <td>3,425.00</td>
+                                    <td>3,375.00</td>
+                                    <td>3,420.00</td>
+                                    <td>98,456</td>
+                                    <td class="text-success">+1.2%</td>
+                                </tr>
+                                <tr>
+                                    <td>2023-05-01</td>
+                                    <td>3,390.00</td>
+                                    <td>3,395.00</td>
+                                    <td>3,350.00</td>
+                                    <td>3,380.00</td>
+                                    <td>87,654</td>
+                                    <td class="text-danger">-0.3%</td>
+                                </tr>
+                                <tr>
+                                    <td>2023-04-30</td>
+                                    <td>3,400.00</td>
+                                    <td>3,410.00</td>
+                                    <td>3,385.00</td>
+                                    <td>3,390.00</td>
+                                    <td>76,543</td>
+                                    <td class="text-danger">-0.5%</td>
+                                </tr>
+                                <tr>
+                                    <td>2023-04-29</td>
+                                    <td>3,385.00</td>
+                                    <td>3,415.00</td>
+                                    <td>3,380.00</td>
+                                    <td>3,400.00</td>
+                                    <td>92,345</td>
+                                    <td class="text-success">+0.8%</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="text-muted">显示 1-5 条，共 120 条</span>
+                        </div>
+                        <nav>
+                            <ul class="pagination pagination-sm">
+                                <li class="page-item disabled"><a class="page-link" href="#">上一页</a></li>
+                                <li class="page-item active"><a class="page-link" href="#">1</a></li>
+                                <li class="page-item"><a class="page-link" href="#">2</a></li>
+                                <li class="page-item"><a class="page-link" href="#">3</a></li>
+                                <li class="page-item"><a class="page-link" href="#">下一页</a></li>
+                            </ul>
+                        </nav>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-gear"></i> 数据管理</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-outline-primary mb-3" type="button" data-bs-toggle="modal" data-bs-target="#uploadDataModal">
+                            <i class="bi bi-upload"></i> 上传新数据
+                        </button>
+                        <button class="btn btn-outline-primary mb-3" type="button" data-bs-toggle="modal" data-bs-target="#editDataModal">
+                            <i class="bi bi-pencil"></i> 编辑数据
+                        </button>
+                        <button class="btn btn-outline-danger" type="button" data-bs-toggle="modal" data-bs-target="#deleteDataModal">
+                            <i class="bi bi-trash"></i> 删除数据
+                        </button>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <div class="alert alert-info">
+                        <h6><i class="bi bi-info-circle"></i> 数据说明</h6>
+                        <p class="mb-0">本系统使用深度学习模型分析豆粕期货历史数据，预测未来价格走势。预测结果仅供参考，不构成投资建议。</p>
+                    </div>
+
+                    <div class="alert alert-warning">
+                        <h6><i class="bi bi-exclamation-triangle"></i> 风险提示</h6>
+                        <p class="mb-0">期货交易有风险，投资需谨慎。历史数据不代表未来表现，请结合多种因素进行分析决策。</p>
+                    </div>
+                </div>
+            </div>
+
+
+        </div>
+    </div>
+</div>
+
+<!-- 上传数据模态框 -->
+<div class="modal fade" id="uploadDataModal" tabindex="-1" aria-labelledby="uploadDataModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="uploadDataModalLabel">上传新数据</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form>
+                    <div class="mb-3">
+                        <label for="dataFile" class="form-label">选择CSV文件</label>
+                        <input class="form-control" type="file" id="dataFile" accept=".csv">
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="replaceExistingData">
+                            <label class="form-check-label" for="replaceExistingData">
+                                替换现有数据
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary">上传</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 编辑数据模态框 -->
+<div class="modal fade" id="editDataModal" tabindex="-1" aria-labelledby="editDataModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editDataModalLabel">编辑数据</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form>
+                    <div class="mb-3">
+                        <label for="editDate" class="form-label">日期</label>
+                        <input type="date" class="form-control" id="editDate">
+                    </div>
+                    <div class="mb-3">
+                        <label for="editOpen" class="form-label">开盘价</label>
+                        <input type="number" class="form-control" id="editOpen" step="0.01">
+                    </div>
+                    <div class="mb-3">
+                        <label for="editHigh" class="form-label">最高价</label>
+                        <input type="number" class="form-control" id="editHigh" step="0.01">
+                    </div>
+                    <div class="mb-3">
+                        <label for="editLow" class="form-label">最低价</label>
+                        <input type="number" class="form-control" id="editLow" step="0.01">
+                    </div>
+                    <div class="mb-3">
+                        <label for="editClose" class="form-label">收盘价</label>
+                        <input type="number" class="form-control" id="editClose" step="0.01">
+                    </div>
+                    <div class="mb-3">
+                        <label for="editVolume" class="form-label">成交量</label>
+                        <input type="number" class="form-control" id="editVolume">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 删除数据模态框 -->
+<div class="modal fade" id="deleteDataModal" tabindex="-1" aria-labelledby="deleteDataModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteDataModalLabel">删除数据</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form>
+                    <div class="mb-3">
+                        <label for="deleteStartDate" class="form-label">开始日期</label>
+                        <input type="date" class="form-control" id="deleteStartDate">
+                    </div>
+                    <div class="mb-3">
+                        <label for="deleteEndDate" class="form-label">结束日期</label>
+                        <input type="date" class="form-control" id="deleteEndDate">
+                    </div>
+                    <div class="alert alert-danger">
+                        警告：删除操作不可恢复，请确认您要删除的数据范围。
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-danger">删除</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // 从 Flask 模板获取数据
+    let chartData, labels, closingPrices;
+    let modelMetrics = {{ model_metrics | safe }};
+
+    try {
+        // 检查 chart_data 是否已经是对象
+        const rawData = {{ chart_data | safe }};
+        console.log("原始数据类型:", typeof rawData);
+
+        // 如果是字符串，则解析为JSON；如果已经是对象，则直接使用
+        chartData = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
+        console.log("加载的图表数据:", chartData);
+
+        // 检查数据是否有效
+        if (chartData && chartData.labels && chartData.closing_prices) {
+            labels = chartData.labels;
+            closingPrices = chartData.closing_prices;
+
+            // 显示数据加载成功消息
+            console.log(`成功加载数据: ${labels.length} 条记录`);
+
+            // 更新表格中的实际数据
+            updateDataTable(chartData);
+        } else if (chartData && chartData.error) {
+            // 显示错误消息
+            console.error("数据加载错误:", chartData.error);
+            alert("数据加载错误: " + chartData.error);
+
+            // 使用空数组作为默认值
+            labels = [];
+            closingPrices = [];
+        } else {
+            console.error("数据格式无效");
+            alert("数据格式无效，无法显示图表");
+
+            // 使用空数组作为默认值
+            labels = [];
+            closingPrices = [];
+        }
+    } catch (e) {
+        console.error("解析数据时出错:", e);
+        alert("解析数据时出错: " + e.message);
+
+        // 使用空数组作为默认值
+        labels = [];
+        closingPrices = [];
+    }
+
+    // 如果没有数据，使用示例数据进行演示
+    if (!labels || labels.length === 0) {
+        labels = ['2023-04-25', '2023-04-26', '2023-04-27', '2023-04-28', '2023-04-29', '2023-04-30', '2023-05-01', '2023-05-02', '2023-05-03'];
+        closingPrices = [3350, 3370, 3380, 3390, 3400, 3390, 3380, 3420, 3456];
+        console.log("使用示例数据进行演示");
+    }
+
+    // 预测数据变量
+    let predictionLabels = [];
+    let predictionPrices = [];
+    let currentModel = 'mlp';
+    let isLoading = false;
+
+    // 函数：调用后端API进行预测
+    async function fetchPrediction(model, days) {
+        // 显示加载状态
+        isLoading = true;
+        showLoadingState(true);
+
+        try {
+            // 构建API URL (考虑蓝图前缀)
+            const apiUrl = `/viz/api/predict?model=${model}&days=${days}`;
+
+            // 发送请求
+            const response = await fetch(apiUrl);
+
+            // 检查响应状态
+            if (!response.ok) {
+                throw new Error(`预测请求失败: ${response.status} ${response.statusText}`);
+            }
+
+            // 解析响应数据
+            const data = await response.json();
+
+            // 更新预测数据
+            predictionLabels = data.dates || [];
+            predictionPrices = data.prices || [];
+
+            console.log(`成功获取 ${model} 模型的预测数据:`, data);
+
+            return {
+                labels: predictionLabels,
+                prices: predictionPrices
+            };
+        } catch (error) {
+            console.error('获取预测数据时出错:', error);
+            // 在出错时返回空数据
+            return {
+                labels: [],
+                prices: []
+            };
+        } finally {
+            // 隐藏加载状态
+            isLoading = false;
+            showLoadingState(false);
+        }
+    }
+
+    // 显示/隐藏加载状态
+    function showLoadingState(show) {
+        const loadingIndicator = document.getElementById('predictionLoadingIndicator') || createLoadingIndicator();
+        loadingIndicator.style.display = show ? 'flex' : 'none';
+    }
+
+    // 创建加载指示器
+    function createLoadingIndicator() {
+        const indicator = document.createElement('div');
+        indicator.id = 'predictionLoadingIndicator';
+        indicator.className = 'position-absolute top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center bg-white bg-opacity-75';
+        indicator.style.zIndex = '1000';
+        indicator.innerHTML = `
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">加载中...</span>
+            </div>
+            <span class="ms-2">正在使用模型预测...</span>
+        `;
+
+        // 添加到图表容器
+        const chartContainer = document.querySelector('.chart-container');
+        if (chartContainer) {
+            chartContainer.style.position = 'relative';
+            chartContainer.appendChild(indicator);
+        }
+
+        return indicator;
+    }
+
+    // 合并历史数据和预测数据
+    const allLabels = [...labels, ...predictionLabels];
+
+    // 注释掉移动平均线计算代码
+    // const calculateMA = (prices, period) => {
+    //     return prices.map((price, i) => {
+    //         if (i < period - 1) return null;
+    //         const slice = prices.slice(i - period + 1, i + 1);
+    //         const sum = slice.reduce((a, b) => a + b, 0);
+    //         return sum / period;
+    //     });
+    // };
+
+    // // 计算MA5和MA20
+    // const ma5Data = calculateMA(closingPrices, 5);
+    // const ma20Data = calculateMA(closingPrices, 20);
+
+    // 获取 canvas 元素
+    const ctx = document.getElementById('closingPriceChart').getContext('2d');
+
+    // 检查Chart.js和插件是否正确加载
+    try {
+        console.log("Chart.js 版本:", Chart.version);
+
+        // 检查插件是否已经注册
+        const registeredPlugins = Chart.registry.plugins.items;
+        console.log("已注册的插件:", registeredPlugins);
+
+        // 检查是否需要手动注册插件
+        const hasAnnotationPlugin = Chart.registry.plugins.get('annotation') !== undefined;
+        if (!hasAnnotationPlugin) {
+            console.log("尝试手动注册 annotation 插件");
+            if (window.ChartAnnotation) {
+                Chart.register(window.ChartAnnotation);
+                console.log("成功注册 annotation 插件");
+            } else {
+                console.warn("找不到 ChartAnnotation 对象");
+            }
+        }
+
+        const hasZoomPlugin = Chart.registry.plugins.get('zoom') !== undefined;
+        if (!hasZoomPlugin) {
+            console.log("尝试手动注册 zoom 插件");
+            if (window.ChartZoom) {
+                Chart.register(window.ChartZoom);
+                console.log("成功注册 zoom 插件");
+            } else {
+                console.warn("找不到 ChartZoom 对象");
+            }
+        }
+    } catch (e) {
+        console.error("检查Chart.js插件时出错:", e);
+    }
+
+    // 隐藏加载指示器，显示图表
+    document.getElementById('chartLoadingIndicator').style.display = 'none';
+    document.getElementById('closingPriceChart').style.display = 'block';
+
+    // 页面加载时自动调用预测API
+    async function loadInitialPrediction() {
+        const initialModel = document.getElementById('modelSelect').value;
+        const initialDays = document.getElementById('predictionRange').value;
+
+        try {
+            // 调用预测API
+            const prediction = await fetchPrediction(initialModel, initialDays);
+
+            if (prediction.labels.length > 0 && prediction.prices.length > 0) {
+                // 更新图表数据
+                closingPriceChart.data.labels = [...initialFilteredData.filteredLabels, ...prediction.labels];
+
+                // 更新历史收盘价数据（在预测部分为null）
+                closingPriceChart.data.datasets[0].data = [...initialFilteredData.filteredPrices, ...Array(prediction.labels.length).fill(null)];
+
+                // 更新预测价格数据（在历史部分为null）
+                closingPriceChart.data.datasets[1].data = [...Array(initialFilteredData.filteredLabels.length).fill(null), ...prediction.prices];
+
+                // 更新图表
+                closingPriceChart.update();
+
+                // 更新预测价格卡片
+                const predictedPrice = prediction.prices[prediction.prices.length - 1];
+                const predictedPriceElement = document.querySelector('.data-card:nth-child(2) .display-5');
+                if (predictedPriceElement && predictedPrice) {
+                    predictedPriceElement.textContent = predictedPrice.toLocaleString();
+
+                    // 更新预期涨跌幅
+                    if (initialFilteredData.filteredPrices.length > 0) {
+                        const currentPrice = initialFilteredData.filteredPrices[initialFilteredData.filteredPrices.length - 1];
+                        const expectedChangePercent = ((predictedPrice - currentPrice) / currentPrice * 100).toFixed(2);
+                        const expectedChangeElement = document.querySelector('.data-card:nth-child(2) .text-success');
+
+                        if (expectedChangeElement) {
+                            if (expectedChangePercent > 0) {
+                                expectedChangeElement.innerHTML = `<i class="bi bi-arrow-up"></i> +${expectedChangePercent}% (预期)`;
+                                expectedChangeElement.className = 'text-success';
+                            } else if (expectedChangePercent < 0) {
+                                expectedChangeElement.innerHTML = `<i class="bi bi-arrow-down"></i> ${expectedChangePercent}% (预期)`;
+                                expectedChangeElement.className = 'text-danger';
+                            } else {
+                                expectedChangeElement.innerHTML = `<i class="bi bi-dash"></i> 0.00% (预期)`;
+                                expectedChangeElement.className = 'text-muted';
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('初始预测加载失败:', error);
+        }
+    }
+
+    // 调用初始预测加载函数
+    loadInitialPrediction();
+
+    // 根据时间范围过滤数据
+    function filterDataByTimeRange(days) {
+        if (days === 'all' || !labels || labels.length === 0) {
+            return {
+                filteredLabels: labels,
+                filteredPrices: closingPrices,
+                startIndex: 0
+            };
+        }
+
+        // 将天数转换为整数
+        const daysNum = parseInt(days);
+
+        // 计算开始索引（确保不会小于0）
+        const startIndex = Math.max(0, labels.length - daysNum);
+
+        // 过滤数据
+        const filteredLabels = labels.slice(startIndex);
+        const filteredPrices = closingPrices.slice(startIndex);
+
+        return {
+            filteredLabels,
+            filteredPrices,
+            startIndex
+        };
+    }
+
+    // 初始过滤数据（默认显示30天）
+    const initialTimeRange = document.getElementById('timeRangeSelect').value;
+    const initialFilteredData = filterDataByTimeRange(initialTimeRange);
+
+    // 创建图表
+    const closingPriceChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: initialFilteredData.filteredLabels,
+            datasets: [
+                {
+                    label: '历史收盘价',
+                    data: initialFilteredData.filteredPrices,
+                    borderColor: 'rgb(75, 192, 192)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.1,
+                    fill: true
+                },
+                {
+                    label: '预测价格',
+                    data: [],
+                    borderColor: 'rgb(255, 99, 132)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                    borderWidth: 2,
+                    borderDash: [5, 5],
+                    tension: 0.1,
+                    fill: true
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false,
+            },
+            scales: {
+                x: {
+                    grid: {
+                        display: false
+                    }
+                },
+                y: {
+                    beginAtZero: false,
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.05)'
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    position: 'top',
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false
+                },
+                // 只有在插件可用时才启用注释功能
+                ...(Chart.registry.plugins.get('annotation') !== undefined ? {
+                    annotation: {
+                        annotations: {
+                            line1: {
+                                type: 'line',
+                                xMin: labels.length - 1,
+                                xMax: labels.length - 1,
+                                borderColor: 'rgb(169, 169, 169)',
+                                borderWidth: 2,
+                                borderDash: [6, 6],
+                                label: {
+                                    content: '预测开始',
+                                    display: true,
+                                    position: 'start'
+                                }
+                            }
+                        }
+                    }
+                } : {}),
+
+                // 只有在插件可用时才启用缩放功能
+                ...(Chart.registry.plugins.get('zoom') !== undefined ? {
+                    zoom: {
+                        pan: {
+                            enabled: true,
+                            mode: 'x'
+                        },
+                        zoom: {
+                            wheel: {
+                                enabled: true,
+                            },
+                            pinch: {
+                                enabled: true
+                            },
+                            mode: 'x',
+                        }
+                    }
+                } : {})
+            }
+        }
+    });
+
+    // 更新数据表格
+    function updateDataTable(data) {
+        // 只有当有足够的数据时才更新表格
+        if (!data || !data.labels || data.labels.length < 5) return;
+
+        const tableBody = document.querySelector('.table tbody');
+        if (!tableBody) return;
+
+        // 清空表格
+        tableBody.innerHTML = '';
+
+        // 获取最近的5条数据
+        const lastIndex = data.labels.length - 1;
+        const startIndex = Math.max(0, lastIndex - 4);
+
+        // 添加数据行
+        for (let i = lastIndex; i >= startIndex; i--) {
+            const row = document.createElement('tr');
+
+            // 计算涨跌幅
+            const changePercent = i > 0
+                ? ((data.closing_prices[i] - data.closing_prices[i-1]) / data.closing_prices[i-1] * 100).toFixed(1)
+                : 0;
+
+            const changeClass = changePercent > 0 ? 'text-success' : (changePercent < 0 ? 'text-danger' : '');
+            const changeSign = changePercent > 0 ? '+' : '';
+
+            // 设置行内容
+            row.innerHTML = `
+                <td>${data.labels[i]}</td>
+                <td>${data.opening_prices && data.opening_prices[i] ? data.opening_prices[i].toLocaleString() : '-'}</td>
+                <td>${data.high_prices && data.high_prices[i] ? data.high_prices[i].toLocaleString() : '-'}</td>
+                <td>${data.low_prices && data.low_prices[i] ? data.low_prices[i].toLocaleString() : '-'}</td>
+                <td>${data.closing_prices[i].toLocaleString()}</td>
+                <td>${data.volumes && data.volumes[i] ? data.volumes[i].toLocaleString() : '-'}</td>
+                <td class="${changeClass}">${changeSign}${changePercent}%</td>
+            `;
+
+            tableBody.appendChild(row);
+        }
+
+        // 更新显示的记录数
+        const countDisplay = document.querySelector('.text-muted');
+        if (countDisplay) {
+            countDisplay.textContent = `显示 ${startIndex+1}-${lastIndex+1} 条，共 ${data.labels.length} 条`;
+        }
+    }
+
+    // 添加按钮事件监听器
+    document.getElementById('zoomInBtn').addEventListener('click', function() {
+        try {
+            // 检查是否有缩放功能
+            if (closingPriceChart.zoom && typeof closingPriceChart.zoom === 'function') {
+                closingPriceChart.zoom(1.1);
+            } else {
+                console.warn("图表没有 zoom 方法");
+            }
+        } catch (e) {
+            console.error("缩放操作失败:", e);
+        }
+    });
+
+    document.getElementById('zoomOutBtn').addEventListener('click', function() {
+        try {
+            // 检查是否有缩放功能
+            if (closingPriceChart.zoom && typeof closingPriceChart.zoom === 'function') {
+                closingPriceChart.zoom(0.9);
+            } else {
+                console.warn("图表没有 zoom 方法");
+            }
+        } catch (e) {
+            console.error("缩放操作失败:", e);
+        }
+    });
+
+    document.getElementById('resetZoomBtn').addEventListener('click', function() {
+        try {
+            // 检查是否有重置缩放功能
+            if (closingPriceChart.resetZoom && typeof closingPriceChart.resetZoom === 'function') {
+                closingPriceChart.resetZoom();
+            } else {
+                console.warn("图表没有 resetZoom 方法");
+                // 尝试通过重新加载页面来重置
+                location.reload();
+            }
+        } catch (e) {
+            console.error("重置缩放操作失败:", e);
+            // 如果重置失败，尝试重新加载页面
+            location.reload();
+        }
+    });
+
+    document.getElementById('applyFiltersBtn').addEventListener('click', async function() {
+        // 获取选择的时间范围
+        const timeRange = document.getElementById('timeRangeSelect').value;
+
+        // 获取选择的预测模型
+        const selectedModel = document.getElementById('modelSelect').value;
+
+        // 获取选择的预测天数
+        const predictionDays = document.getElementById('predictionRange').value;
+
+        // 更新当前模型
+        currentModel = selectedModel;
+
+        // 根据选择的时间范围过滤数据
+        const filteredData = filterDataByTimeRange(timeRange);
+
+        // 更新图表的历史数据部分
+        closingPriceChart.data.labels = filteredData.filteredLabels;
+        closingPriceChart.data.datasets[0].data = filteredData.filteredPrices;
+        closingPriceChart.data.datasets[1].data = [];
+
+        // 先更新图表，显示历史数据
+        closingPriceChart.update();
+
+        // 调用后端API获取预测数据
+        try {
+            const prediction = await fetchPrediction(selectedModel, predictionDays);
+
+            if (prediction.labels.length > 0 && prediction.prices.length > 0) {
+                // 更新图表数据，添加预测部分
+                closingPriceChart.data.labels = [...filteredData.filteredLabels, ...prediction.labels];
+
+                // 更新历史收盘价数据（在预测部分为null）
+                closingPriceChart.data.datasets[0].data = [...filteredData.filteredPrices, ...Array(prediction.labels.length).fill(null)];
+
+                // 更新预测价格数据（在历史部分为null）
+                closingPriceChart.data.datasets[1].data = [...Array(filteredData.filteredLabels.length).fill(null), ...prediction.prices];
+
+                // 更新图表
+                closingPriceChart.update();
+
+                // 更新预测天数显示
+                const predictionTitle = document.querySelector('.data-card:nth-child(2) .card-title');
+                if (predictionTitle) {
+                    predictionTitle.textContent = `预测价格 (${predictionDays}天后)`;
+                }
+
+                // 更新预测价格卡片中的价格
+                const predictedPrice = prediction.prices[prediction.prices.length - 1];
+                const predictedPriceElement = document.querySelector('.data-card:nth-child(2) .display-5');
+                if (predictedPriceElement && predictedPrice) {
+                    predictedPriceElement.textContent = predictedPrice.toLocaleString();
+
+                    // 更新预期涨跌幅
+                    if (filteredData.filteredPrices.length > 0) {
+                        const currentPrice = filteredData.filteredPrices[filteredData.filteredPrices.length - 1];
+                        const expectedChangePercent = ((predictedPrice - currentPrice) / currentPrice * 100).toFixed(2);
+                        const expectedChangeElement = document.querySelector('.data-card:nth-child(2) .text-success');
+
+                        if (expectedChangeElement) {
+                            if (expectedChangePercent > 0) {
+                                expectedChangeElement.innerHTML = `<i class="bi bi-arrow-up"></i> +${expectedChangePercent}% (预期)`;
+                                expectedChangeElement.className = 'text-success';
+                            } else if (expectedChangePercent < 0) {
+                                expectedChangeElement.innerHTML = `<i class="bi bi-arrow-down"></i> ${expectedChangePercent}% (预期)`;
+                                expectedChangeElement.className = 'text-danger';
+                            } else {
+                                expectedChangeElement.innerHTML = `<i class="bi bi-dash"></i> 0.00% (预期)`;
+                                expectedChangeElement.className = 'text-muted';
+                            }
+                        }
+                    }
+                }
+            } else {
+                console.warn('预测API返回了空数据');
+                alert('无法获取预测数据，请稍后再试。');
+            }
+        } catch (error) {
+            console.error('获取预测数据时出错:', error);
+            alert('获取预测数据时出错: ' + error.message);
+        }
+
+        console.log(`应用筛选条件: 时间范围=${timeRange}天, 预测模型=${selectedModel}, 预测天数=${predictionDays}天`);
+
+        // 更新模型说明
+        updateModelDescription(selectedModel);
+    });
+
+    // 更新模型说明函数
+    function updateModelDescription(model) {
+        let description = '';
+        let accuracy = '';
+
+        // 获取模型描述
+        switch(model) {
+            case 'mlp':
+                description = 'MLP (多层感知机) 模型是一种前馈神经网络，能够学习特征之间的非线性关系，适合处理多维特征数据。';
+                break;
+            case 'lstm':
+                description = 'LSTM (长短期记忆网络) 模型擅长捕捉时间序列中的长期依赖关系，对价格趋势变化有较好的预测能力。';
+                break;
+            case 'cnn':
+                description = 'CNN (卷积神经网络) 模型通过卷积层提取局部特征，能够识别时间序列中的模式和趋势，计算效率高。';
+                break;
+            default:
+                description = '请选择预测模型';
+        }
+
+        // 从后端获取的模型指标中获取准确率
+        if (modelMetrics && modelMetrics[model] && modelMetrics[model].accuracy) {
+            accuracy = modelMetrics[model].accuracy.toFixed(1) + '%';
+        } else {
+            // 如果没有获取到准确率，使用默认值
+            switch(model) {
+                case 'mlp': accuracy = '85.0%'; break;
+                case 'lstm': accuracy = '87.0%'; break;
+                case 'cnn': accuracy = '83.0%'; break;
+                default: accuracy = 'N/A';
+            }
+        }
+
+        // 更新准确率显示
+        const accuracyElement = document.querySelector('.progress-bar');
+        if (accuracyElement) {
+            // 提取准确率数值（去掉百分号）
+            const accuracyValue = parseFloat(accuracy.replace('%', ''));
+            // 设置进度条宽度（使用整数值）
+            accuracyElement.style.width = `${Math.floor(accuracyValue)}%`;
+            // 显示准确率（保留一位小数）
+            accuracyElement.textContent = `${accuracyValue.toFixed(2)}%`;
+            accuracyElement.setAttribute('aria-valuenow', accuracyValue);
+
+            // 更新准确率说明文本
+            const accuracyTextElement = document.querySelector('.card-title + .progress + .text-muted');
+            if (accuracyTextElement) {
+                accuracyTextElement.textContent = `基于${getModelFullName(model)}历史表现`;
+            }
+        }
+
+        // 添加模型说明到页面
+        const modelInfoElement = document.querySelector('.card-body .alert-info p');
+        if (modelInfoElement) {
+            modelInfoElement.innerHTML = `本系统使用<strong>${getModelFullName(model)}</strong>分析豆粕期货历史数据，预测未来价格走势。${description} 预测结果仅供参考，不构成投资建议。`;
+        }
+    }
+
+    // 获取模型全名
+    function getModelFullName(model) {
+        switch(model) {
+            case 'mlp':
+                return '多层感知机 (MLP) ';
+            case 'lstm':
+                return '长短期记忆网络 (LSTM) ';
+            case 'cnn':
+                return '卷积神经网络 (CNN) ';
+            default:
+                return '深度学习模型';
+        }
+    }
+
+    // 初始化时更新模型说明
+    updateModelDescription('mlp');
+
+    // 添加模型选择的事件监听器
+    document.getElementById('modelSelect').addEventListener('change', function() {
+        const selectedModel = this.value;
+        updateModelDescription(selectedModel);
+    });
+
+    // 添加时间范围选择的事件监听器
+    document.getElementById('timeRangeSelect').addEventListener('change', function() {
+        // 自动点击应用筛选按钮
+        document.getElementById('applyFiltersBtn').click();
+    });
+
+    document.getElementById('downloadDataBtn').addEventListener('click', function() {
+        // 在实际应用中，这里应该触发数据下载
+        if (chartData && chartData.labels && chartData.labels.length > 0) {
+            // 创建CSV内容
+            let csvContent = "日期,开盘价,最高价,最低价,收盘价,成交量\n";
+
+            for (let i = 0; i < chartData.labels.length; i++) {
+                const opening = chartData.opening_prices && chartData.opening_prices[i] ? chartData.opening_prices[i] : '';
+                const high = chartData.high_prices && chartData.high_prices[i] ? chartData.high_prices[i] : '';
+                const low = chartData.low_prices && chartData.low_prices[i] ? chartData.low_prices[i] : '';
+                const closing = chartData.closing_prices[i];
+                const volume = chartData.volumes && chartData.volumes[i] ? chartData.volumes[i] : '';
+
+                csvContent += `${chartData.labels[i]},${opening},${high},${low},${closing},${volume}\n`;
+            }
+
+            // 创建下载链接
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.setAttribute('href', url);
+            link.setAttribute('download', '豆粕期货数据.csv');
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } else {
+            alert('没有可下载的数据');
+        }
+    });
+
+    document.getElementById('refreshDataBtn').addEventListener('click', function() {
+        // 在实际应用中，这里应该刷新数据
+        location.reload();
+    });
+
+    // 更新价格预测卡片
+    function updatePricePredictionCards() {
+        if (closingPrices && closingPrices.length > 0) {
+            // 当前价格
+            const currentPrice = closingPrices[closingPrices.length - 1];
+            const currentPriceElement = document.querySelector('.data-card:nth-child(1) .display-5');
+            if (currentPriceElement) {
+                currentPriceElement.textContent = currentPrice.toLocaleString();
+            }
+
+            // 计算今日涨跌幅
+            if (closingPrices.length > 1) {
+                const yesterdayPrice = closingPrices[closingPrices.length - 2];
+                const changePercent = ((currentPrice - yesterdayPrice) / yesterdayPrice * 100).toFixed(1);
+                const changeElement = document.querySelector('.data-card:nth-child(1) .text-success');
+
+                if (changeElement) {
+                    if (changePercent > 0) {
+                        changeElement.innerHTML = `<i class="bi bi-arrow-up"></i> +${changePercent}% (今日)`;
+                        changeElement.className = 'text-success';
+                    } else if (changePercent < 0) {
+                        changeElement.innerHTML = `<i class="bi bi-arrow-down"></i> ${changePercent}% (今日)`;
+                        changeElement.className = 'text-danger';
+                    } else {
+                        changeElement.innerHTML = `<i class="bi bi-dash"></i> 0.0% (今日)`;
+                        changeElement.className = 'text-muted';
+                    }
+                }
+            }
+
+            // 预测价格
+            if (predictionPrices && predictionPrices.length > 0) {
+                const predictedPrice = predictionPrices[predictionPrices.length - 1];
+                const predictedPriceElement = document.querySelector('.data-card:nth-child(2) .display-5');
+
+                if (predictedPriceElement) {
+                    predictedPriceElement.textContent = predictedPrice.toLocaleString();
+                }
+
+                // 计算预期涨跌幅
+                const expectedChangePercent = ((predictedPrice - currentPrice) / currentPrice * 100).toFixed(2);
+                const expectedChangeElement = document.querySelector('.data-card:nth-child(2) .text-success');
+
+                if (expectedChangeElement) {
+                    if (expectedChangePercent > 0) {
+                        expectedChangeElement.innerHTML = `<i class="bi bi-arrow-up"></i> +${expectedChangePercent}% (预期)`;
+                        expectedChangeElement.className = 'text-success';
+                    } else if (expectedChangePercent < 0) {
+                        expectedChangeElement.innerHTML = `<i class="bi bi-arrow-down"></i> ${expectedChangePercent}% (预期)`;
+                        expectedChangeElement.className = 'text-danger';
+                    } else {
+                        expectedChangeElement.innerHTML = `<i class="bi bi-dash"></i> 0.00% (预期)`;
+                        expectedChangeElement.className = 'text-muted';
+                    }
+                }
+            }
+        }
+    }
+
+    // 调用函数更新价格预测卡片
+    updatePricePredictionCards();
+</script>
+{% endblock %}

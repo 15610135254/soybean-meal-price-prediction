@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 # 使用tensorflow-macos 2.9.0
 import tensorflow as tf
+import joblib
 
 # 检查是否在Apple Silicon芯片上运行
 import platform
@@ -75,7 +76,7 @@ class DeepLearningModels:
     
     def create_directories(self):
         """创建必要的目录"""
-        directories = ['saved_models', 'logs', 'checkpoints', 'results']
+        directories = ['saved_models', 'logs', 'checkpoints', 'results', 'scalers']
         for directory in directories:
             os.makedirs(directory, exist_ok=True)
     
@@ -264,6 +265,15 @@ class DeepLearningModels:
         
         self.X_test_scaled = self.feature_scaler.transform(self.X_test)
         self.y_test_scaled = self.target_scaler.transform(self.y_test.reshape(-1, 1)).ravel()
+        
+        # 保存标准化器
+        scaler_path = 'scalers'
+        feature_scaler_file = os.path.join(scaler_path, 'feature_scaler.pkl')
+        target_scaler_file = os.path.join(scaler_path, 'target_scaler.pkl')
+        joblib.dump(self.feature_scaler, feature_scaler_file)
+        joblib.dump(self.target_scaler, target_scaler_file)
+        print(f"特征标准化器已保存到: {feature_scaler_file}")
+        print(f"目标标准化器已保存到: {target_scaler_file}")
     
     def prepare_time_series(self):
         """准备时间序列数据"""

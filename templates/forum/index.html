@@ -1,0 +1,485 @@
+{% extends 'base.html' %}
+
+{% block title %}论坛讨论 - 豆粕期货价格预测系统{% endblock %}
+
+{% block head %}
+<style>
+    .forum-card {
+        transition: all 0.3s ease;
+        margin-bottom: 20px;
+    }
+    .forum-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    }
+    .topic-card {
+        border-left: 4px solid #007bff;
+        transition: all 0.3s ease;
+    }
+    .topic-card:hover {
+        background-color: #f8f9fa;
+    }
+    .topic-card.hot {
+        border-left-color: #dc3545;
+    }
+    .topic-card.announcement {
+        border-left-color: #ffc107;
+    }
+    .avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        object-fit: cover;
+    }
+    .avatar-sm {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        object-fit: cover;
+    }
+    .topic-stats {
+        text-align: center;
+        min-width: 60px;
+    }
+    .topic-badge {
+        font-size: 0.7rem;
+        padding: 2px 5px;
+    }
+    .last-reply {
+        font-size: 0.85rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h2><i class="bi bi-chat-dots"></i> 豆粕期货论坛</h2>
+            <p class="lead">与交易者交流经验，分享市场见解</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newTopicModal">
+                <i class="bi bi-plus-circle"></i> 发布新主题
+            </button>
+        </div>
+    </div>
+
+    <!-- 论坛导航和搜索 -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <ul class="nav nav-tabs">
+                <li class="nav-item">
+                    <a class="nav-link active" href="#">全部主题</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#">热门讨论</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#">精华帖</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#">我的帖子</a>
+                </li>
+            </ul>
+        </div>
+        <div class="col-md-4">
+            <div class="input-group">
+                <input type="text" class="form-control" placeholder="搜索主题..." aria-label="搜索主题">
+                <button class="btn btn-primary" type="button"><i class="bi bi-search"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 论坛版块 -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card forum-card">
+                <div class="card-body text-center">
+                    <i class="bi bi-graph-up text-primary" style="font-size: 2rem;"></i>
+                    <h5 class="mt-2">市场分析</h5>
+                    <div class="small text-muted">125 主题 · 1,234 回复</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card forum-card">
+                <div class="card-body text-center">
+                    <i class="bi bi-lightbulb text-warning" style="font-size: 2rem;"></i>
+                    <h5 class="mt-2">交易策略</h5>
+                    <div class="small text-muted">98 主题 · 876 回复</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card forum-card">
+                <div class="card-body text-center">
+                    <i class="bi bi-newspaper text-success" style="font-size: 2rem;"></i>
+                    <h5 class="mt-2">新闻解读</h5>
+                    <div class="small text-muted">76 主题 · 654 回复</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card forum-card">
+                <div class="card-body text-center">
+                    <i class="bi bi-people text-info" style="font-size: 2rem;"></i>
+                    <h5 class="mt-2">新手交流</h5>
+                    <div class="small text-muted">145 主题 · 1,876 回复</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 主题列表 -->
+    <div class="row">
+        <div class="col-md-9">
+            <!-- 公告 -->
+            <div class="card mb-4">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0"><i class="bi bi-megaphone"></i> 公告</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush">
+                        <div class="list-group-item topic-card announcement d-flex align-items-center p-3">
+                            <div class="me-3">
+                                <img src="https://via.placeholder.com/40" alt="管理员头像" class="avatar">
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <h6 class="mb-0">
+                                        <span class="badge bg-danger topic-badge me-1">置顶</span>
+                                        <span class="badge bg-warning topic-badge me-1">公告</span>
+                                        论坛规则更新：请文明发言，禁止发布广告内容
+                                    </h6>
+                                    <small class="text-muted">2023-04-20</small>
+                                </div>
+                                <div class="small text-muted mt-1">
+                                    <span class="fw-bold">管理员</span> · 最后回复：2023-05-01
+                                </div>
+                            </div>
+                            <div class="ms-3 topic-stats">
+                                <div class="fw-bold">24</div>
+                                <small class="text-muted">回复</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 热门主题 -->
+            <div class="card mb-4">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0"><i class="bi bi-fire"></i> 热门主题</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush">
+                        <div class="list-group-item topic-card hot d-flex align-items-center p-3">
+                            <div class="me-3">
+                                <img src="https://via.placeholder.com/40" alt="用户头像" class="avatar">
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <h6 class="mb-0">
+                                        <span class="badge bg-danger topic-badge me-1">热门</span>
+                                        <span class="badge bg-primary topic-badge me-1">市场分析</span>
+                                        如何看待近期豆粕价格波动？
+                                    </h6>
+                                    <small class="text-muted">2023-05-02</small>
+                                </div>
+                                <div class="small text-muted mt-1">
+                                    <span class="fw-bold">交易达人</span> · 最后回复：2 小时前
+                                </div>
+                            </div>
+                            <div class="ms-3 topic-stats">
+                                <div class="fw-bold">32</div>
+                                <small class="text-muted">回复</small>
+                            </div>
+                        </div>
+                        <div class="list-group-item topic-card hot d-flex align-items-center p-3">
+                            <div class="me-3">
+                                <img src="https://via.placeholder.com/40" alt="用户头像" class="avatar">
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <h6 class="mb-0">
+                                        <span class="badge bg-danger topic-badge me-1">热门</span>
+                                        <span class="badge bg-warning topic-badge me-1">交易策略</span>
+                                        深度学习模型在期货预测中的应用
+                                    </h6>
+                                    <small class="text-muted">2023-05-01</small>
+                                </div>
+                                <div class="small text-muted mt-1">
+                                    <span class="fw-bold">AI研究者</span> · 最后回复：5 小时前
+                                </div>
+                            </div>
+                            <div class="ms-3 topic-stats">
+                                <div class="fw-bold">18</div>
+                                <small class="text-muted">回复</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 最新主题 -->
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-clock-history"></i> 最新主题</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush">
+                        <div class="list-group-item topic-card d-flex align-items-center p-3">
+                            <div class="me-3">
+                                <img src="https://via.placeholder.com/40" alt="用户头像" class="avatar">
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <h6 class="mb-0">
+                                        <span class="badge bg-primary topic-badge me-1">市场分析</span>
+                                        豆粕期货交易策略分享
+                                    </h6>
+                                    <small class="text-muted">2023-05-03</small>
+                                </div>
+                                <div class="small text-muted mt-1">
+                                    <span class="fw-bold">期货老手</span> · 最后回复：1 小时前
+                                </div>
+                            </div>
+                            <div class="ms-3 topic-stats">
+                                <div class="fw-bold">45</div>
+                                <small class="text-muted">回复</small>
+                            </div>
+                        </div>
+                        <div class="list-group-item topic-card d-flex align-items-center p-3">
+                            <div class="me-3">
+                                <img src="https://via.placeholder.com/40" alt="用户头像" class="avatar">
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <h6 class="mb-0">
+                                        <span class="badge bg-success topic-badge me-1">新闻解读</span>
+                                        解读：中国大豆进口量创新高对豆粕价格的影响
+                                    </h6>
+                                    <small class="text-muted">2023-05-03</small>
+                                </div>
+                                <div class="small text-muted mt-1">
+                                    <span class="fw-bold">市场分析师</span> · 最后回复：3 小时前
+                                </div>
+                            </div>
+                            <div class="ms-3 topic-stats">
+                                <div class="fw-bold">12</div>
+                                <small class="text-muted">回复</small>
+                            </div>
+                        </div>
+                        <div class="list-group-item topic-card d-flex align-items-center p-3">
+                            <div class="me-3">
+                                <img src="https://via.placeholder.com/40" alt="用户头像" class="avatar">
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <h6 class="mb-0">
+                                        <span class="badge bg-info topic-badge me-1">新手交流</span>
+                                        新手求助：如何开始豆粕期货交易？
+                                    </h6>
+                                    <small class="text-muted">2023-05-02</small>
+                                </div>
+                                <div class="small text-muted mt-1">
+                                    <span class="fw-bold">期货新手</span> · 最后回复：昨天
+                                </div>
+                            </div>
+                            <div class="ms-3 topic-stats">
+                                <div class="fw-bold">28</div>
+                                <small class="text-muted">回复</small>
+                            </div>
+                        </div>
+                        <div class="list-group-item topic-card d-flex align-items-center p-3">
+                            <div class="me-3">
+                                <img src="https://via.placeholder.com/40" alt="用户头像" class="avatar">
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <h6 class="mb-0">
+                                        <span class="badge bg-warning topic-badge me-1">交易策略</span>
+                                        技术分析：豆粕期货突破前高后的操作建议
+                                    </h6>
+                                    <small class="text-muted">2023-05-02</small>
+                                </div>
+                                <div class="small text-muted mt-1">
+                                    <span class="fw-bold">技术派</span> · 最后回复：昨天
+                                </div>
+                            </div>
+                            <div class="ms-3 topic-stats">
+                                <div class="fw-bold">15</div>
+                                <small class="text-muted">回复</small>
+                            </div>
+                        </div>
+                        <div class="list-group-item topic-card d-flex align-items-center p-3">
+                            <div class="me-3">
+                                <img src="https://via.placeholder.com/40" alt="用户头像" class="avatar">
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <h6 class="mb-0">
+                                        <span class="badge bg-primary topic-badge me-1">市场分析</span>
+                                        基本面分析：饲料需求增长对豆粕价格的支撑
+                                    </h6>
+                                    <small class="text-muted">2023-05-01</small>
+                                </div>
+                                <div class="small text-muted mt-1">
+                                    <span class="fw-bold">基本面研究</span> · 最后回复：2 天前
+                                </div>
+                            </div>
+                            <div class="ms-3 topic-stats">
+                                <div class="fw-bold">9</div>
+                                <small class="text-muted">回复</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <nav>
+                        <ul class="pagination justify-content-center mb-0">
+                            <li class="page-item disabled">
+                                <a class="page-link" href="#" tabindex="-1" aria-disabled="true">上一页</a>
+                            </li>
+                            <li class="page-item active"><a class="page-link" href="#">1</a></li>
+                            <li class="page-item"><a class="page-link" href="#">2</a></li>
+                            <li class="page-item"><a class="page-link" href="#">3</a></li>
+                            <li class="page-item">
+                                <a class="page-link" href="#">下一页</a>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <!-- 论坛统计 -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-bar-chart"></i> 论坛统计</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                            主题总数
+                            <span class="badge bg-primary rounded-pill">444</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                            回复总数
+                            <span class="badge bg-primary rounded-pill">4,640</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                            会员总数
+                            <span class="badge bg-primary rounded-pill">1,256</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                            最新会员
+                            <span>期货新手</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- 活跃用户 -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-people"></i> 活跃用户</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex flex-wrap gap-2 justify-content-center">
+                        <div class="text-center">
+                            <img src="https://via.placeholder.com/30" alt="用户头像" class="avatar-sm mb-1">
+                            <div class="small">交易达人</div>
+                        </div>
+                        <div class="text-center">
+                            <img src="https://via.placeholder.com/30" alt="用户头像" class="avatar-sm mb-1">
+                            <div class="small">AI研究者</div>
+                        </div>
+                        <div class="text-center">
+                            <img src="https://via.placeholder.com/30" alt="用户头像" class="avatar-sm mb-1">
+                            <div class="small">期货老手</div>
+                        </div>
+                        <div class="text-center">
+                            <img src="https://via.placeholder.com/30" alt="用户头像" class="avatar-sm mb-1">
+                            <div class="small">市场分析师</div>
+                        </div>
+                        <div class="text-center">
+                            <img src="https://via.placeholder.com/30" alt="用户头像" class="avatar-sm mb-1">
+                            <div class="small">技术派</div>
+                        </div>
+                        <div class="text-center">
+                            <img src="https://via.placeholder.com/30" alt="用户头像" class="avatar-sm mb-1">
+                            <div class="small">基本面研究</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 论坛指南 -->
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-info-circle"></i> 论坛指南</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled mb-0">
+                        <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i> <a href="#">论坛使用指南</a></li>
+                        <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i> <a href="#">发帖规则</a></li>
+                        <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i> <a href="#">如何获得积分</a></li>
+                        <li><i class="bi bi-check-circle text-success me-2"></i> <a href="#">常见问题解答</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 发布新主题模态框 -->
+<div class="modal fade" id="newTopicModal" tabindex="-1" aria-labelledby="newTopicModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="newTopicModalLabel">发布新主题</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form>
+                    <div class="mb-3">
+                        <label for="topicCategory" class="form-label">选择版块</label>
+                        <select class="form-select" id="topicCategory">
+                            <option selected>市场分析</option>
+                            <option>交易策略</option>
+                            <option>新闻解读</option>
+                            <option>新手交流</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="topicTitle" class="form-label">主题标题</label>
+                        <input type="text" class="form-control" id="topicTitle" placeholder="请输入主题标题">
+                    </div>
+                    <div class="mb-3">
+                        <label for="topicContent" class="form-label">主题内容</label>
+                        <textarea class="form-control" id="topicContent" rows="6" placeholder="请输入主题内容"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="topicTags" class="form-label">标签 (可选，用逗号分隔)</label>
+                        <input type="text" class="form-control" id="topicTags" placeholder="例如：技术分析,豆粕,交易策略">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary">发布主题</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // 这里可以添加论坛页面特定的JavaScript代码
+    // 例如发帖、回复等功能
+</script>
+{% endblock %}
