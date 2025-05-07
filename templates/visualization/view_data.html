@@ -3,6 +3,8 @@
 {% block title %}数据可视化 - 豆粕期货价格预测系统{% endblock %}
 
 {% block head %}
+    <!-- 引入 jQuery -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <!-- 引入 Chart.js 和其他需要的库 -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
@@ -346,15 +348,11 @@
             <div class="modal-body">
                 <form>
                     <div class="mb-3">
-                        <label for="deleteStartDate" class="form-label">开始日期</label>
-                        <input type="date" class="form-control" id="deleteStartDate">
-                    </div>
-                    <div class="mb-3">
-                        <label for="deleteEndDate" class="form-label">结束日期</label>
-                        <input type="date" class="form-control" id="deleteEndDate">
+                        <label for="deleteDate" class="form-label">删除日期</label>
+                        <input type="date" class="form-control" id="deleteDate">
                     </div>
                     <div class="alert alert-danger">
-                        警告：删除操作不可恢复，请确认您要删除的数据范围。
+                        警告：删除操作不可恢复，此操作将删除所选日期的数据。
                     </div>
                 </form>
             </div>
@@ -1612,13 +1610,12 @@
 
     // 删除数据按钮点击事件
     document.getElementById('confirmDeleteBtn').addEventListener('click', async function() {
-        // 获取日期范围
-        const startDate = document.getElementById('deleteStartDate').value;
-        const endDate = document.getElementById('deleteEndDate').value;
+        // 获取日期
+        const deleteDate = document.getElementById('deleteDate').value;
 
         // 验证数据
-        if (!startDate || !endDate) {
-            showNotification('开始日期和结束日期是必填字段', 'danger');
+        if (!deleteDate) {
+            showNotification('删除日期是必填字段', 'danger');
             return;
         }
 
@@ -1633,8 +1630,7 @@
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    startDate,
-                    endDate
+                    date: deleteDate
                 })
             });
 
@@ -1650,81 +1646,18 @@
 
                 // 更新图表数据
                 if (data.chart_data) {
-                    // 保存删除前的数据信息，用于比较
-                    const oldLabelsFirst = labels && labels.length > 0 ? labels[0] : "无数据";
-                    const oldLabelsLast = labels && labels.length > 0 ? labels[labels.length-1] : "无数据";
-                    const oldLabelsLength = labels ? labels.length : 0;
-
-                    // 更新全局数据，但保持使用相同的数据源
+                    // 更新全局数据
                     chartData = data.chart_data;
                     labels = data.chart_data.labels;
                     closingPrices = data.chart_data.closing_prices;
-
-                    // 详细记录数据变化，检查是否更换了数据集
-                    console.log("删除前数据信息:", {
-                        "日期数量": oldLabelsLength,
-                        "日期范围": oldLabelsFirst + " 至 " + oldLabelsLast,
-                        "前5个日期": labels && labels.length >= 5 ? labels.slice(0, 5).join(", ") : "无足够数据",
-                        "后5个日期": labels && labels.length >= 5 ? labels.slice(-5).join(", ") : "无足够数据"
-                    });
-
-                    console.log("删除后数据信息:", {
-                        "日期数量": labels.length,
-                        "日期范围": labels[0] + " 至 " + labels[labels.length-1],
-                        "前5个日期": labels.slice(0, 5).join(", "),
-                        "后5个日期": labels.slice(-5).join(", ")
-                    });
-
-                    // 检查数据集是否被更换（通过比较日期范围的起始日期）
-                    if (oldLabelsFirst !== labels[0]) {
-                        console.warn("警告：数据集的起始日期发生了变化，可能更换了数据源！");
-                        console.warn("原始起始日期: " + oldLabelsFirst + ", 新起始日期: " + labels[0]);
-                    } else {
-                        console.log("数据集的起始日期未变化，仍然使用相同的数据源");
-                    }
 
                     // 根据时间范围过滤数据
                     const timeRange = document.getElementById('timeRangeSelect').value;
                     const filteredData = filterDataByTimeRange(timeRange);
 
-                    // 检查数据是否按日期从早到晚排序
-                    console.log("更新图表前检查数据排序:", {
-                        "第一个日期": filteredData.filteredLabels[0],
-                        "最后一个日期": filteredData.filteredLabels[filteredData.filteredLabels.length-1]
-                    });
-
-                    // 确保数据是按日期从早到晚排序的
-                    let sortedLabels = [...filteredData.filteredLabels];
-                    let sortedPrices = [...filteredData.filteredPrices];
-
-                    // 如果发现数据是倒序的（最后一个日期早于第一个日期），则进行排序
-                    if (new Date(sortedLabels[0]) > new Date(sortedLabels[sortedLabels.length-1])) {
-                        console.warn("检测到数据倒序，正在重新排序...");
-
-                        // 创建日期和价格的配对数组
-                        let pairs = sortedLabels.map((label, index) => {
-                            return {
-                                date: label,
-                                price: sortedPrices[index]
-                            };
-                        });
-
-                        // 按日期从早到晚排序
-                        pairs.sort((a, b) => new Date(a.date) - new Date(b.date));
-
-                        // 提取排序后的标签和价格
-                        sortedLabels = pairs.map(pair => pair.date);
-                        sortedPrices = pairs.map(pair => pair.price);
-
-                        console.log("重新排序后:", {
-                            "第一个日期": sortedLabels[0],
-                            "最后一个日期": sortedLabels[sortedLabels.length-1]
-                        });
-                    }
-
-                    // 更新图表（使用确保正确排序的数据）
-                    closingPriceChart.data.labels = sortedLabels;
-                    closingPriceChart.data.datasets[0].data = sortedPrices;
+                    // 更新图表
+                    closingPriceChart.data.labels = filteredData.filteredLabels;
+                    closingPriceChart.data.datasets[0].data = filteredData.filteredPrices;
                     closingPriceChart.data.datasets[1].data = [];
                     closingPriceChart.update();
 
@@ -1734,7 +1667,7 @@
                     // 更新价格预测卡片
                     updatePricePredictionCards();
 
-                    // 自动触发预测，使用相同的数据源
+                    // 自动触发预测
                     document.getElementById('applyFiltersBtn').click();
 
                     // 显示成功消息
@@ -1940,5 +1873,14 @@
         // 添加行点击事件处理
         addRowClickHandlers();
     }
+
+    // 在删除模态框显示前设置当前日期
+    $('#deleteDataModal').on('show.bs.modal', function () {
+        const today = new Date();
+        const formattedDate = today.toISOString().split('T')[0];
+        document.getElementById('deleteDate').value = formattedDate;
+        // 允许用户修改日期
+        document.getElementById('deleteDate').removeAttribute('readonly');
+    });
 </script>
 {% endblock %}

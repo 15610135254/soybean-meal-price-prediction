@@ -390,13 +390,12 @@ def delete_data():
         if not data:
             return jsonify({"success": False, "error": "没有提供数据"}), 400
 
-        # 获取日期范围
-        start_date = data.get('startDate')
-        end_date = data.get('endDate')
+        # 获取删除日期
+        delete_date = data.get('date')
 
         # 验证必要的字段
-        if not start_date or not end_date:
-            return jsonify({"success": False, "error": "开始日期和结束日期是必填字段"}), 400
+        if not delete_date:
+            return jsonify({"success": False, "error": "删除日期是必填字段"}), 400
 
         # 获取数据文件路径
         current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -413,54 +412,35 @@ def delete_data():
         df['日期'] = pd.to_datetime(df['日期'])
 
         # 记录删除前的数据信息
-        logger.info(f"删除前数据文件路径: {full_data_path}")
         logger.info(f"删除前数据行数: {len(df)}")
-        logger.info(f"删除前数据日期范围: {df['日期'].min()} 至 {df['日期'].max()}")
-        logger.info(f"删除前前10个日期: {', '.join(df['日期'].dt.strftime('%Y-%m-%d').head(10).tolist())}")
-        logger.info(f"删除前后10个日期: {', '.join(df['日期'].dt.strftime('%Y-%m-%d').tail(10).tolist())}")
+        logger.info(f"要删除的日期: {delete_date}")
 
-        # 转换日期字符串为datetime对象
-        start_date_obj = pd.to_datetime(start_date)
-        end_date_obj = pd.to_datetime(end_date)
+        # 转换删除日期为datetime对象
+        delete_date_obj = pd.to_datetime(delete_date)
 
         # 记录删除前的行数
         original_rows = len(df)
 
-        # 只删除指定日期范围内的数据
-        # 保留所有不在指定日期范围内的数据
-        df = df[(df['日期'] < start_date_obj) | (df['日期'] > end_date_obj)]
-        logger.info(f"已删除从 {start_date} 到 {end_date} 之间的数据")
+        # 只删除指定日期的数据
+        df = df[df['日期'] != delete_date_obj]
 
         # 确保数据按日期从早到晚排序（升序）
         df = df.sort_values('日期', ascending=True)
-        logger.info("已对数据按日期升序排序（从早到晚）")
-
-        # 记录删除后的数据信息
-        logger.info(f"删除后数据行数: {len(df)}")
-        logger.info(f"删除后数据日期范围: {df['日期'].min()} 至 {df['日期'].max()}")
-        logger.info(f"删除后前10个日期: {', '.join(df['日期'].dt.strftime('%Y-%m-%d').head(10).tolist())}")
-        logger.info(f"删除后后10个日期: {', '.join(df['日期'].dt.strftime('%Y-%m-%d').tail(10).tolist())}")
 
         # 计算删除的行数
         deleted_rows = original_rows - len(df)
         logger.info(f"删除的行数: {deleted_rows}")
 
         if deleted_rows <= 0:
-            return jsonify({"success": False, "error": "未找到指定日期范围内的数据"}), 404
+            return jsonify({"success": False, "error": "未找到指定日期的数据"}), 404
 
-        # 保存更新后的数据到原文件，不更换数据源
+        # 保存更新后的数据
         df.to_csv(full_data_path, index=False)
 
-        # 预处理数据，但不更改DATA_FILE_PATH
+        # 预处理数据
         sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         from data.preprocess_data import preprocess_data
         df = preprocess_data(full_data_path, full_data_path)
-
-        # 记录预处理后的数据信息
-        logger.info(f"预处理后数据行数: {len(df)}")
-        logger.info(f"预处理后数据日期范围: {df['日期'].min()} 至 {df['日期'].max()}")
-        logger.info(f"预处理后前10个日期: {', '.join(df['日期'].dt.strftime('%Y-%m-%d').head(10).tolist())}")
-        logger.info(f"预处理后后10个日期: {', '.join(df['日期'].dt.strftime('%Y-%m-%d').tail(10).tolist())}")
 
         # 准备返回数据
         chart_data = {
@@ -471,12 +451,6 @@ def delete_data():
             'low_prices': df['最低价'].tolist() if '最低价' in df.columns else [],
             'volumes': df['成交量'].tolist() if '成交量' in df.columns else []
         }
-
-        # 记录返回数据的信息
-        logger.info(f"返回数据的日期数量: {len(chart_data['labels'])}")
-        logger.info(f"返回数据的日期范围: {chart_data['labels'][0]} 至 {chart_data['labels'][-1]}")
-        logger.info(f"返回数据的前10个日期: {', '.join(chart_data['labels'][:10])}")
-        logger.info(f"返回数据的后10个日期: {', '.join(chart_data['labels'][-10:])}")
 
         # 添加技术指标数据（如果存在）
         if 'MA5' in df.columns:

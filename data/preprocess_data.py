@@ -138,8 +138,8 @@ def preprocess_data(input_file, output_file=None):
     # 5.13 计算成交量变化率
     df['成交量变化率'] = df['成交量'].pct_change() * 100
 
-    # 6. 按日期排序（降序，最新日期在前）
-    df = df.sort_values(by='日期', ascending=False)
+    # 6. 按日期排序（升序，旧日期在前）
+    df = df.sort_values(by='日期', ascending=True)
 
     # 统计处理后的信息
     print("\n处理后的数据信息:")
