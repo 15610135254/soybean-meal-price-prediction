@@ -426,25 +426,10 @@ def delete_data():
         # 记录删除前的行数
         original_rows = len(df)
 
-        # 找到开始日期前一天的数据
-        df_sorted = df.sort_values('日期', ascending=True)
-        day_before_start = df_sorted[df_sorted['日期'] < start_date_obj]
-
-        if not day_before_start.empty:
-            # 获取开始日期前一天的数据
-            day_before_start_data = day_before_start.iloc[-1:].copy()
-            logger.info(f"开始日期前一天: {day_before_start_data['日期'].iloc[0]}")
-
-            # 删除指定日期范围内的数据以及开始日期之前的所有数据
-            df = df[df['日期'] > end_date_obj]
-
-            # 将开始日期前一天的数据添加为第一行
-            df = pd.concat([day_before_start_data, df], ignore_index=True)
-            logger.info(f"已将日期 {day_before_start_data['日期'].iloc[0]} 的数据设为第一行")
-        else:
-            # 如果没有找到开始日期前一天的数据，只删除指定日期范围内的数据
-            logger.warning("未找到开始日期前一天的数据，只删除指定日期范围内的数据")
-            df = df[(df['日期'] < start_date_obj) | (df['日期'] > end_date_obj)]
+        # 只删除指定日期范围内的数据
+        # 保留所有不在指定日期范围内的数据
+        df = df[(df['日期'] < start_date_obj) | (df['日期'] > end_date_obj)]
+        logger.info(f"已删除从 {start_date} 到 {end_date} 之间的数据")
 
         # 确保数据按日期从早到晚排序（升序）
         df = df.sort_values('日期', ascending=True)
@@ -456,13 +441,8 @@ def delete_data():
         logger.info(f"删除后前10个日期: {', '.join(df['日期'].dt.strftime('%Y-%m-%d').head(10).tolist())}")
         logger.info(f"删除后后10个日期: {', '.join(df['日期'].dt.strftime('%Y-%m-%d').tail(10).tolist())}")
 
-        # 记录删除后的行数
-        if not day_before_start.empty:
-            # 如果我们保留了开始日期前一天的数据，需要计算实际删除的行数
-            # 原始行数 - (当前行数 - 1)，因为我们保留了一行
-            deleted_rows = original_rows - (len(df) - 1)
-        else:
-            deleted_rows = original_rows - len(df)
+        # 计算删除的行数
+        deleted_rows = original_rows - len(df)
         logger.info(f"删除的行数: {deleted_rows}")
 
         if deleted_rows <= 0:
