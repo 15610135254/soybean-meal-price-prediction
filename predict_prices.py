@@ -2,15 +2,36 @@ import pandas as pd
 import numpy as np
 import os
 import joblib
+import glob
 from tensorflow.keras.models import load_model
 from sklearn.preprocessing import MinMaxScaler
 
 # --- 配置 ---
-DATA_FILE = "data/data.csv"  # 更新为正确的数据文件路径
+DEFAULT_DATA_FILE = "data/data.csv"  # 默认数据文件路径
 LOOK_BACK = 20  # 设置默认值为20，这是时间序列预测中常用的窗口大小
 MODEL_DIR = "saved_models"
 SCALER_DIR = "scalers"
 TARGET_COL = '收盘价' # 确认目标列
+
+def get_latest_data_file():
+    """获取数据文件路径，与趋势图保持一致"""
+    # 首先检查默认数据文件是否存在
+    if os.path.exists(DEFAULT_DATA_FILE):
+        print(f"使用默认数据文件: {DEFAULT_DATA_FILE}")
+        return DEFAULT_DATA_FILE
+
+    # 如果默认文件不存在，查找data目录下的所有CSV文件
+    data_files = glob.glob("data/*.csv")
+
+    if not data_files:
+        # 如果没有找到任何CSV文件，返回默认路径（即使它不存在）
+        print(f"未找到任何CSV文件，使用默认文件路径: {DEFAULT_DATA_FILE}")
+        return DEFAULT_DATA_FILE
+
+    # 按文件修改时间排序，返回最新的文件
+    latest_file = max(data_files, key=os.path.getmtime)
+    print(f"默认数据文件不存在，使用最新的数据文件: {latest_file}")
+    return latest_file
 
 # 指定要使用的模型文件
 MODEL_FILES = {
@@ -106,13 +127,14 @@ def handle_missing_values(df, features):
 # --- 主预测逻辑 ---
 def main():
     # 1. 加载数据
-    print(f"正在加载数据: {DATA_FILE}")
+    data_file = get_latest_data_file()
+    print(f"正在加载数据: {data_file}")
     try:
-        df = pd.read_csv(DATA_FILE)
+        df = pd.read_csv(data_file)
         df['日期'] = pd.to_datetime(df['日期'])
         df = df.sort_values('日期')
     except FileNotFoundError:
-        print(f"错误：数据文件 {DATA_FILE} 未找到。")
+        print(f"错误：数据文件 {data_file} 未找到。")
         return
 
     # 2. 加载标准化器
@@ -211,13 +233,14 @@ def predict_with_model(model_type, days=7):
     print(f"使用 {model_type.upper()} 模型预测未来 {days} 天的价格")
 
     # 1. 加载数据
+    data_file = get_latest_data_file()
     try:
-        df = pd.read_csv(DATA_FILE)
+        df = pd.read_csv(data_file)
         df['日期'] = pd.to_datetime(df['日期'])
         df = df.sort_values('日期')
     except FileNotFoundError:
-        print(f"错误：数据文件 {DATA_FILE} 未找到。")
-        return {'error': f'数据文件 {DATA_FILE} 未找到'}
+        print(f"错误：数据文件 {data_file} 未找到。")
+        return {'error': f'数据文件 {data_file} 未找到'}
 
     # 2. 加载标准化器
     try:

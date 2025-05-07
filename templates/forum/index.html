@@ -228,7 +228,7 @@
                     <h5 class="mb-0"><i class="bi bi-clock-history"></i> 最新主题</h5>
                 </div>
                 <div class="card-body p-0">
-                    <div class="list-group list-group-flush">
+                    <div class="list-group list-group-flush topic-list-container">
                         <div class="list-group-item topic-card d-flex align-items-center p-3">
                             <div class="me-3">
                                 <img src="https://via.placeholder.com/40" alt="用户头像" class="avatar">
@@ -337,19 +337,16 @@
                     </div>
                 </div>
                 <div class="card-footer">
-                    <nav>
-                        <ul class="pagination justify-content-center mb-0">
-                            <li class="page-item disabled">
-                                <a class="page-link" href="#" tabindex="-1" aria-disabled="true">上一页</a>
-                            </li>
-                            <li class="page-item active"><a class="page-link" href="#">1</a></li>
-                            <li class="page-item"><a class="page-link" href="#">2</a></li>
-                            <li class="page-item"><a class="page-link" href="#">3</a></li>
-                            <li class="page-item">
-                                <a class="page-link" href="#">下一页</a>
-                            </li>
-                        </ul>
-                    </nav>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="text-muted forum-pagination-info">显示 1-10 条，共 30 条</span>
+                        </div>
+                        <nav>
+                            <ul class="pagination pagination-sm forum-pagination">
+                                <!-- 分页按钮将由JavaScript动态生成 -->
+                            </ul>
+                        </nav>
+                    </div>
                 </div>
             </div>
         </div>
@@ -478,8 +475,46 @@
 {% endblock %}
 
 {% block scripts %}
+<!-- 引入分页功能脚本 -->
+<script src="{{ url_for('static', filename='js/pagination.js') }}"></script>
 <script>
     // 这里可以添加论坛页面特定的JavaScript代码
     // 例如发帖、回复等功能
+
+    // 添加更多主题卡片用于测试分页功能
+    document.addEventListener('DOMContentLoaded', function() {
+        const topicContainer = document.querySelector('.topic-list-container');
+        const topicCards = document.querySelectorAll('.topic-card');
+
+        if (topicContainer && topicCards.length > 0) {
+            // 复制现有的主题卡片，创建更多卡片用于测试
+            for (let i = 0; i < 15; i++) {
+                const randomIndex = Math.floor(Math.random() * topicCards.length);
+                const clonedCard = topicCards[randomIndex].cloneNode(true);
+
+                // 修改标题，使其不完全相同
+                const titleElement = clonedCard.querySelector('h6');
+                if (titleElement) {
+                    const titleText = titleElement.textContent.trim();
+                    const badgeElements = titleElement.querySelectorAll('.badge');
+                    let newTitle = '';
+
+                    // 保留所有徽章
+                    badgeElements.forEach(badge => {
+                        newTitle += badge.outerHTML + ' ';
+                    });
+
+                    // 添加修改后的标题文本
+                    const titleTextWithoutBadges = titleText.replace(/\s*<span.*?<\/span>\s*/g, '').trim();
+                    newTitle += titleTextWithoutBadges + ` (${i + 1})`;
+
+                    titleElement.innerHTML = newTitle;
+                }
+
+                // 添加到容器
+                topicContainer.appendChild(clonedCard);
+            }
+        }
+    });
 </script>
 {% endblock %}

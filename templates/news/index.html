@@ -104,7 +104,7 @@
 
     <!-- 新闻列表 -->
     <div class="row">
-        <div class="col-md-8">
+        <div class="col-md-8 news-list-container">
             <!-- 新闻卡片 -->
             <div class="card news-card">
                 <div class="row g-0">
@@ -195,19 +195,16 @@
             </div>
 
             <!-- 分页 -->
-            <nav class="mt-4">
-                <ul class="pagination justify-content-center">
-                    <li class="page-item disabled">
-                        <a class="page-link" href="#" tabindex="-1" aria-disabled="true">上一页</a>
-                    </li>
-                    <li class="page-item active"><a class="page-link" href="#">1</a></li>
-                    <li class="page-item"><a class="page-link" href="#">2</a></li>
-                    <li class="page-item"><a class="page-link" href="#">3</a></li>
-                    <li class="page-item">
-                        <a class="page-link" href="#">下一页</a>
-                    </li>
-                </ul>
-            </nav>
+            <div class="d-flex justify-content-between align-items-center mt-4">
+                <div>
+                    <span class="text-muted news-pagination-info">显示 1-5 条，共 15 条</span>
+                </div>
+                <nav>
+                    <ul class="pagination pagination-sm news-pagination">
+                        <!-- 分页按钮将由JavaScript动态生成 -->
+                    </ul>
+                </nav>
+            </div>
         </div>
 
         <div class="col-md-4">
@@ -315,8 +312,33 @@
 {% endblock %}
 
 {% block scripts %}
+<!-- 引入分页功能脚本 -->
+<script src="{{ url_for('static', filename='js/pagination.js') }}"></script>
 <script>
     // 这里可以添加新闻页面特定的JavaScript代码
     // 例如新闻搜索、过滤等功能
+
+    // 添加更多新闻卡片用于测试分页功能
+    document.addEventListener('DOMContentLoaded', function() {
+        const newsContainer = document.querySelector('.news-list-container');
+        const newsCards = document.querySelectorAll('.news-card');
+
+        if (newsContainer && newsCards.length > 0) {
+            // 复制现有的新闻卡片，创建更多卡片用于测试
+            for (let i = 0; i < 10; i++) {
+                const randomIndex = Math.floor(Math.random() * newsCards.length);
+                const clonedCard = newsCards[randomIndex].cloneNode(true);
+
+                // 修改标题，使其不完全相同
+                const titleElement = clonedCard.querySelector('.card-title');
+                if (titleElement) {
+                    titleElement.textContent += ` (${i + 1})`;
+                }
+
+                // 添加到容器
+                newsContainer.insertBefore(clonedCard, document.querySelector('.news-pagination').parentNode);
+            }
+        }
+    });
 </script>
 {% endblock %}
