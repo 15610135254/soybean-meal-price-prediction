@@ -7,11 +7,28 @@ from tensorflow.keras.models import load_model
 from sklearn.preprocessing import MinMaxScaler
 
 # --- 配置 ---
-DEFAULT_DATA_FILE = "data/data.csv"  # 默认数据文件路径
+DEFAULT_DATA_FILE = "model_data/date1.csv"  # 默认数据文件路径
 LOOK_BACK = 20  # 设置默认值为20，这是时间序列预测中常用的窗口大小
 MODEL_DIR = "saved_models"
 SCALER_DIR = "scalers"
-TARGET_COL = '收盘价' # 确认目标列
+TARGET_COL = 'close' # 确认目标列
+
+# 列名映射（新数据集到旧数据集的映射）
+COLUMN_MAPPING = {
+    'date': '日期',
+    'open': '开盘价',
+    'high': '最高价',
+    'low': '最低价',
+    'close': '收盘价',
+    'volume': '成交量',
+    'hold': '持仓量',
+    'MA_5': 'MA5',
+    'HV_20': '波动率',
+    'ATR_14': 'ATR',
+    'RSI_14': 'RSI',
+    'OBV': 'OBV',
+    'MACD': 'MACD'
+}
 
 def get_latest_data_file():
     """获取数据文件路径，与趋势图保持一致"""
@@ -20,8 +37,8 @@ def get_latest_data_file():
         print(f"使用默认数据文件: {DEFAULT_DATA_FILE}")
         return DEFAULT_DATA_FILE
 
-    # 如果默认文件不存在，查找data目录下的所有CSV文件
-    data_files = glob.glob("data/*.csv")
+    # 如果默认文件不存在，查找model_data和data目录下的所有CSV文件
+    data_files = glob.glob("model_data/*.csv") + glob.glob("data/*.csv")
 
     if not data_files:
         # 如果没有找到任何CSV文件，返回默认路径（即使它不存在）
@@ -44,17 +61,30 @@ MODEL_FILES = {
 
 def add_technical_indicators(df):
     """添加技术指标 (简化版，确保与训练时使用的特征一致)"""
+    # 确保使用正确的列名
+    close_col = '收盘价' if '收盘价' in df.columns else 'close'
+    open_col = '开盘价' if '开盘价' in df.columns else 'open'
+    high_col = '最高价' if '最高价' in df.columns else 'high'
+    low_col = '最低价' if '最低价' in df.columns else 'low'
+
     # 基本价格特征
-    df['价格变化'] = df['收盘价'].diff()
-    df['价格变化率'] = df['收盘价'].pct_change()
-    df['日内波动率'] = (df['最高价'] - df['最低价']) / df['开盘价']
+    df['价格变化'] = df[close_col].diff()
+    df['价格变化率'] = df[close_col].pct_change()
+    df['日内波动率'] = (df[high_col] - df[low_col]) / df[open_col]
 
     # 移动平均线特征 (仅添加训练时实际使用的)
+    # 检查是否有MA5或MA_5列
+    ma_columns = {}
     for ma in [5, 10, 20, 30]:
         if f'MA{ma}' in df.columns:
-             df[f'MA{ma}_diff'] = df['收盘价'] - df[f'MA{ma}']
-             df[f'MA{ma}_slope'] = df[f'MA{ma}'].diff()
-             # df[f'MA{ma}_std'] = df['收盘价'].rolling(window=ma).std() # 训练时可能未使用
+            ma_columns[ma] = f'MA{ma}'
+        elif f'MA_{ma}' in df.columns:
+            ma_columns[ma] = f'MA_{ma}'
+
+    for ma, col_name in ma_columns.items():
+        df[f'MA{ma}_diff'] = df[close_col] - df[col_name]
+        df[f'MA{ma}_slope'] = df[col_name].diff()
+        # df[f'MA{ma}_std'] = df[close_col].rolling(window=ma).std() # 训练时可能未使用
 
     # 其他指标 (确保这些列在 data.csv 或基础计算中存在)
     # ... (根据 deep_learning_models.py 中 select_features 实际选择的添加)
@@ -76,9 +106,24 @@ def select_features(df):
     """选择模型使用的特征 (必须与训练时完全一致)"""
     # 注意：这里的列表需要和 deep_learning_models.py 中 select_features 函数最终返回的列表完全一致
     # 根据错误信息，训练时使用了17个特征。尝试只使用基础特征和技术指标特征。
-    basic_features = ['收盘价', '开盘价', '最高价', '最低价', '成交量']
+
+    # 检查数据集的列名格式
+    if 'close' in df.columns and '收盘价' not in df.columns:
+        # 新数据集格式
+        basic_features = ['close', 'open', 'high', 'low', 'volume']
+    else:
+        # 旧数据集格式
+        basic_features = ['收盘价', '开盘价', '最高价', '最低价', '成交量']
+
     tech_features = []
-    potential_features = ['涨跌幅', 'MA5', 'MA10', 'MA20', 'MA30', 'EMA12', 'EMA26', 'RSI', 'MACD', 'K', 'D', 'J']
+    # 检查可能的技术指标列名
+    potential_features = [
+        # 旧格式
+        '涨跌幅', 'MA5', 'MA10', 'MA20', 'MA30', 'EMA12', 'EMA26', 'RSI', 'MACD', 'K', 'D', 'J',
+        # 新格式
+        'MA_5', 'HV_20', 'ATR_14', 'RSI_14', 'OBV', 'MACD'
+    ]
+
     for feature in potential_features:
         if feature in df.columns:
             tech_features.append(feature)
@@ -117,7 +162,23 @@ def main():
     print(f"正在加载数据: {data_file}")
     try:
         df = pd.read_csv(data_file)
-        df['日期'] = pd.to_datetime(df['日期'])
+
+        # 检查数据集的列名，并进行必要的映射
+        if 'date' in df.columns and '日期' not in df.columns:
+            print("检测到新数据集格式，进行列名映射...")
+            # 将日期列转换为datetime
+            df['date'] = pd.to_datetime(df['date'])
+            # 重命名列以兼容旧代码
+            df.rename(columns={'date': '日期',
+                              'open': '开盘价',
+                              'high': '最高价',
+                              'low': '最低价',
+                              'close': '收盘价',
+                              'volume': '成交量'}, inplace=True)
+        else:
+            # 原始数据集格式
+            df['日期'] = pd.to_datetime(df['日期'])
+
         df = df.sort_values('日期')
     except FileNotFoundError:
         print(f"错误：数据文件 {data_file} 未找到。")
@@ -222,7 +283,23 @@ def predict_with_model(model_type, days=7):
     data_file = get_latest_data_file()
     try:
         df = pd.read_csv(data_file)
-        df['日期'] = pd.to_datetime(df['日期'])
+
+        # 检查数据集的列名，并进行必要的映射
+        if 'date' in df.columns and '日期' not in df.columns:
+            print("检测到新数据集格式，进行列名映射...")
+            # 将日期列转换为datetime
+            df['date'] = pd.to_datetime(df['date'])
+            # 重命名列以兼容旧代码
+            df.rename(columns={'date': '日期',
+                              'open': '开盘价',
+                              'high': '最高价',
+                              'low': '最低价',
+                              'close': '收盘价',
+                              'volume': '成交量'}, inplace=True)
+        else:
+            # 原始数据集格式
+            df['日期'] = pd.to_datetime(df['日期'])
+
         df = df.sort_values('日期')
     except FileNotFoundError:
         print(f"错误：数据文件 {data_file} 未找到。")

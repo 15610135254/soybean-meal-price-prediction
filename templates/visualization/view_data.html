@@ -149,10 +149,7 @@
                         </div>
                         <canvas id="closingPriceChart" style="display: none;"></canvas>
                     </div>
-                    <div class="chart-container" style="height: 150px;">
-                        <canvas id="volumeChart"></canvas>
-                    </div>
-                    <div class="d-flex justify-content-center">
+                    <div class="d-flex justify-content-center mt-3">
                         <div class="btn-group" role="group">
                             <button type="button" class="btn btn-sm btn-outline-secondary" id="zoomInBtn">
                                 <i class="bi bi-zoom-in"></i> 放大
@@ -179,12 +176,28 @@
         </div>
     </div>
 
+    <!-- 成交量图表 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-bar-chart"></i> 成交量</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container" style="height: 200px;">
+                        <canvas id="volumeChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 技术指标面板 -->
     <div class="row mb-4">
         <div class="col-md-6">
             <div class="card shadow-sm">
                 <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0"><i class="bi bi-graph-up"></i> RSI指标</h5>
+                    <h5 class="mb-0"><i class="bi bi-graph-up"></i> RSI_14指标</h5>
                 </div>
                 <div class="card-body">
                     <div class="chart-container" style="height: 250px;">
@@ -193,6 +206,22 @@
                 </div>
             </div>
         </div>
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-graph-up"></i> HV_20与ATR_14指标</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container" style="height: 250px;">
+                        <canvas id="volatilityChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MACD指标和OBV指标 -->
+    <div class="row mb-4">
         <div class="col-md-6">
             <div class="card shadow-sm">
                 <div class="card-header bg-primary text-white">
@@ -205,86 +234,14 @@
                 </div>
             </div>
         </div>
-    </div>
-
-    <!-- 季节性分析和相关性热力图 -->
-    <div class="row mb-4">
         <div class="col-md-6">
             <div class="card shadow-sm">
                 <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0"><i class="bi bi-calendar"></i> 季节性分析</h5>
+                    <h5 class="mb-0"><i class="bi bi-graph-up"></i> OBV指标</h5>
                 </div>
                 <div class="card-body">
                     <div class="chart-container" style="height: 250px;">
-                        <canvas id="seasonalityChart"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6">
-            <div class="card shadow-sm">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0"><i class="bi bi-grid-3x3"></i> 相关性热力图</h5>
-                </div>
-                <div class="card-body">
-                    <div class="chart-container" style="height: 250px;">
-                        <canvas id="correlationChart"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 技术指标面板 -->
-    <div class="row mb-4">
-        <div class="col-md-6">
-            <div class="card shadow-sm">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0"><i class="bi bi-graph-up"></i> RSI指标</h5>
-                </div>
-                <div class="card-body">
-                    <div class="chart-container" style="height: 250px;">
-                        <canvas id="rsiChart"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6">
-            <div class="card shadow-sm">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0"><i class="bi bi-graph-up"></i> MACD指标</h5>
-                </div>
-                <div class="card-body">
-                    <div class="chart-container" style="height: 250px;">
-                        <canvas id="macdChart"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- KDJ指标和布林带 -->
-    <div class="row mb-4">
-        <div class="col-md-6">
-            <div class="card shadow-sm">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0"><i class="bi bi-graph-up"></i> KDJ指标</h5>
-                </div>
-                <div class="card-body">
-                    <div class="chart-container" style="height: 250px;">
-                        <canvas id="kdjChart"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6">
-            <div class="card shadow-sm">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0"><i class="bi bi-graph-up"></i> 布林带</h5>
-                </div>
-                <div class="card-body">
-                    <div class="chart-container" style="height: 250px;">
-                        <canvas id="bollingerChart"></canvas>
+                        <canvas id="obvChart"></canvas>
                     </div>
                 </div>
             </div>
@@ -1032,16 +989,24 @@
             maintainAspectRatio: false,
             plugins: {
                 legend: {
-                    display: false
+                    display: true,
+                    position: 'top'
                 },
                 tooltip: {
                     mode: 'index',
                     intersect: false
+                },
+                title: {
+                    display: true,
+                    text: '成交量趋势'
                 }
             },
             scales: {
                 x: {
-                    display: false
+                    grid: {
+                        display: true,
+                        color: 'rgba(0, 0, 0, 0.05)'
+                    }
                 },
                 y: {
                     beginAtZero: true,
@@ -1117,6 +1082,10 @@
             // 检查是否有缩放功能
             if (closingPriceChart.zoom && typeof closingPriceChart.zoom === 'function') {
                 closingPriceChart.zoom(1.1);
+                // 同步缩放成交量图表
+                if (volumeChart.zoom && typeof volumeChart.zoom === 'function') {
+                    volumeChart.zoom(1.1);
+                }
             } else {
                 // console.warn("图表没有 zoom 方法");
             }
@@ -1130,6 +1099,10 @@
             // 检查是否有缩放功能
             if (closingPriceChart.zoom && typeof closingPriceChart.zoom === 'function') {
                 closingPriceChart.zoom(0.9);
+                // 同步缩放成交量图表
+                if (volumeChart.zoom && typeof volumeChart.zoom === 'function') {
+                    volumeChart.zoom(0.9);
+                }
             } else {
                 // console.warn("图表没有 zoom 方法");
             }
@@ -1143,6 +1116,10 @@
             // 检查是否有重置缩放功能
             if (closingPriceChart.resetZoom && typeof closingPriceChart.resetZoom === 'function') {
                 closingPriceChart.resetZoom();
+                // 同步重置成交量图表
+                if (volumeChart.resetZoom && typeof volumeChart.resetZoom === 'function') {
+                    volumeChart.resetZoom();
+                }
             } else {
                 // console.warn("图表没有 resetZoom 方法");
                 // 尝试通过重新加载页面来重置
@@ -1380,9 +1357,95 @@
 
     // 添加时间范围选择的事件监听器
     document.getElementById('timeRangeSelect').addEventListener('change', function() {
+        // 获取选择的时间范围
+        const timeRange = this.value;
+
+        // 根据选择的时间范围过滤数据
+        const filteredData = filterDataByTimeRange(timeRange);
+
+        // 更新所有图表的数据
+        updateAllCharts(filteredData);
+
         // 自动点击预测按钮
         document.getElementById('applyFiltersBtn').click();
     });
+
+    // 更新所有图表的函数
+    function updateAllCharts(filteredData) {
+        // 更新主价格图表
+        if (closingPriceChart) {
+            closingPriceChart.data.labels = filteredData.filteredLabels;
+            closingPriceChart.data.datasets[0].data = filteredData.filteredPrices;
+            closingPriceChart.update();
+        }
+
+        // 更新成交量图表
+        if (volumeChart && chartData && chartData.volumes) {
+            volumeChart.data.labels = filteredData.filteredLabels;
+            volumeChart.data.datasets[0].data = chartData.volumes.slice(
+                Math.max(0, chartData.volumes.length - filteredData.filteredLabels.length)
+            );
+            volumeChart.update();
+        }
+
+        // 更新RSI_14图表
+        const rsiChart = Chart.getChart(document.getElementById('rsiChart'));
+        if (rsiChart && chartData && chartData.rsi) {
+            rsiChart.data.labels = filteredData.filteredLabels;
+            rsiChart.data.datasets[0].data = chartData.rsi.slice(
+                Math.max(0, chartData.rsi.length - filteredData.filteredLabels.length)
+            );
+            // 更新超买超卖线
+            rsiChart.data.datasets[1].data = Array(filteredData.filteredLabels.length).fill(70);
+            rsiChart.data.datasets[2].data = Array(filteredData.filteredLabels.length).fill(30);
+            rsiChart.update();
+        }
+
+        // 更新HV_20与ATR_14图表
+        const volatilityChart = Chart.getChart(document.getElementById('volatilityChart'));
+        if (volatilityChart && chartData) {
+            volatilityChart.data.labels = filteredData.filteredLabels;
+
+            // 更新HV_20数据
+            if (chartData.hv20 && volatilityChart.data.datasets[0]) {
+                volatilityChart.data.datasets[0].data = chartData.hv20.slice(
+                    Math.max(0, chartData.hv20.length - filteredData.filteredLabels.length)
+                );
+            }
+
+            // 更新ATR_14数据
+            if (chartData.atr14 && volatilityChart.data.datasets[1]) {
+                volatilityChart.data.datasets[1].data = chartData.atr14.slice(
+                    Math.max(0, chartData.atr14.length - filteredData.filteredLabels.length)
+                );
+            }
+
+            volatilityChart.update();
+        }
+
+        // 更新MACD图表
+        const macdChart = Chart.getChart(document.getElementById('macdChart'));
+        if (macdChart && chartData && chartData.MACD) {
+            macdChart.data.labels = filteredData.filteredLabels;
+
+            // 更新MACD数据
+            macdChart.data.datasets[0].data = chartData.MACD.slice(
+                Math.max(0, chartData.MACD.length - filteredData.filteredLabels.length)
+            );
+
+            macdChart.update();
+        }
+
+        // 更新OBV图表
+        const obvChart = Chart.getChart(document.getElementById('obvChart'));
+        if (obvChart && chartData && chartData.obv) {
+            obvChart.data.labels = filteredData.filteredLabels;
+            obvChart.data.datasets[0].data = chartData.obv.slice(
+                Math.max(0, chartData.obv.length - filteredData.filteredLabels.length)
+            );
+            obvChart.update();
+        }
+    }
 
     // 预测天数固定为1天
     document.getElementById('predictionRange').value = '1';
@@ -1391,7 +1454,7 @@
         predictionTitle.textContent = '预测价格 (1天后)';
     }
 
-    // 创建RSI指标图表
+    // 创建RSI_14指标图表
     if (chartData && chartData.rsi) {
         const rsiCtx = document.getElementById('rsiChart').getContext('2d');
         const rsiChart = new Chart(rsiCtx, {
@@ -1400,7 +1463,7 @@
                 labels: initialFilteredData.filteredLabels,
                 datasets: [
                     {
-                        label: 'RSI',
+                        label: 'RSI_14',
                         data: chartData.rsi.slice(Math.max(0, chartData.rsi.length - initialFilteredData.filteredLabels.length)),
                         borderColor: 'rgb(255, 159, 64)',
                         backgroundColor: 'rgba(255, 159, 64, 0.1)',
@@ -1435,6 +1498,10 @@
                     tooltip: {
                         mode: 'index',
                         intersect: false
+                    },
+                    title: {
+                        display: true,
+                        text: 'RSI_14指标'
                     }
                 },
                 scales: {
@@ -1454,7 +1521,7 @@
     }
 
     // 创建MACD指标图表
-    if (chartData && chartData.MACD && chartData.MACD_Signal && chartData.MACD_Hist) {
+    if (chartData && chartData.MACD) {
         const macdCtx = document.getElementById('macdChart').getContext('2d');
         const macdChart = new Chart(macdCtx, {
             type: 'line',
@@ -1468,46 +1535,118 @@
                         backgroundColor: 'rgba(255, 99, 132, 0.1)',
                         borderWidth: 2,
                         tension: 0.1,
-                        fill: false
+                        fill: true
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false
                     },
-                    {
-                        label: 'Signal',
-                        data: chartData.MACD_Signal.slice(Math.max(0, chartData.MACD_Signal.length - initialFilteredData.filteredLabels.length)),
-                        borderColor: 'rgb(75, 192, 192)',
-                        backgroundColor: 'rgba(75, 192, 192, 0.1)',
-                        borderWidth: 2,
-                        tension: 0.1,
-                        fill: false
+                    title: {
+                        display: true,
+                        text: 'MACD指标'
+                    }
+                },
+                scales: {
+                    x: {
+                        display: false
                     },
-                    {
-                        type: 'bar',
-                        label: 'Histogram',
-                        data: chartData.MACD_Hist.slice(Math.max(0, chartData.MACD_Hist.length - initialFilteredData.filteredLabels.length)),
-                        backgroundColor: function(context) {
-                            const value = context.dataset.data[context.dataIndex];
-                            return value >= 0 ? 'rgba(75, 192, 192, 0.5)' : 'rgba(255, 99, 132, 0.5)';
+                    y: {
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // 创建HV_20与ATR_14指标图表
+    if (chartData) {
+        const volatilityCtx = document.getElementById('volatilityChart').getContext('2d');
+
+        // 准备数据
+        const datasets = [];
+
+        // 添加历史波动率数据
+        if (chartData.hv20) {
+            datasets.push({
+                label: 'HV_20',
+                data: chartData.hv20.slice(Math.max(0, chartData.hv20.length - initialFilteredData.filteredLabels.length)),
+                borderColor: 'rgb(255, 99, 132)',
+                backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                borderWidth: 2,
+                tension: 0.1,
+                fill: false,
+                yAxisID: 'y'
+            });
+        }
+
+        // 添加ATR数据
+        if (chartData.atr14) {
+            datasets.push({
+                label: 'ATR_14',
+                data: chartData.atr14.slice(Math.max(0, chartData.atr14.length - initialFilteredData.filteredLabels.length)),
+                borderColor: 'rgb(54, 162, 235)',
+                backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                borderWidth: 2,
+                tension: 0.1,
+                fill: false,
+                yAxisID: 'y1'
+            });
+        }
+
+        // 创建图表
+        const volatilityChart = new Chart(volatilityCtx, {
+            type: 'line',
+            data: {
+                labels: initialFilteredData.filteredLabels,
+                datasets: datasets
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    title: {
+                        display: true,
+                        text: 'HV_20与ATR_14指标'
+                    }
+                },
+                scales: {
+                    x: {
+                        display: false
+                    },
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        title: {
+                            display: true,
+                            text: 'HV_20'
                         },
-                        borderColor: 'rgba(0, 0, 0, 0.1)',
-                        borderWidth: 1
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    tooltip: {
-                        mode: 'index',
-                        intersect: false
-                    }
-                },
-                scales: {
-                    x: {
-                        display: false
-                    },
-                    y: {
                         grid: {
                             color: 'rgba(0, 0, 0, 0.05)'
+                        }
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        title: {
+                            display: true,
+                            text: 'ATR_14'
+                        },
+                        grid: {
+                            drawOnChartArea: false
                         }
                     }
                 }
@@ -1515,40 +1654,22 @@
         });
     }
 
-    // 创建KDJ指标图表
-    if (chartData && chartData.K && chartData.D && chartData.J) {
-        const kdjCtx = document.getElementById('kdjChart').getContext('2d');
-        const kdjChart = new Chart(kdjCtx, {
+    // 创建OBV指标图表
+    if (chartData && chartData.obv) {
+        const obvCtx = document.getElementById('obvChart').getContext('2d');
+        const obvChart = new Chart(obvCtx, {
             type: 'line',
             data: {
                 labels: initialFilteredData.filteredLabels,
                 datasets: [
                     {
-                        label: 'K值',
-                        data: chartData.K.slice(Math.max(0, chartData.K.length - initialFilteredData.filteredLabels.length)),
-                        borderColor: 'rgb(255, 99, 132)',
-                        backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                        label: 'OBV',
+                        data: chartData.obv.slice(Math.max(0, chartData.obv.length - initialFilteredData.filteredLabels.length)),
+                        borderColor: 'rgb(153, 102, 255)',
+                        backgroundColor: 'rgba(153, 102, 255, 0.1)',
                         borderWidth: 2,
                         tension: 0.1,
-                        fill: false
-                    },
-                    {
-                        label: 'D值',
-                        data: chartData.D.slice(Math.max(0, chartData.D.length - initialFilteredData.filteredLabels.length)),
-                        borderColor: 'rgb(75, 192, 192)',
-                        backgroundColor: 'rgba(75, 192, 192, 0.1)',
-                        borderWidth: 2,
-                        tension: 0.1,
-                        fill: false
-                    },
-                    {
-                        label: 'J值',
-                        data: chartData.J.slice(Math.max(0, chartData.J.length - initialFilteredData.filteredLabels.length)),
-                        borderColor: 'rgb(255, 159, 64)',
-                        backgroundColor: 'rgba(255, 159, 64, 0.1)',
-                        borderWidth: 2,
-                        tension: 0.1,
-                        fill: false
+                        fill: true
                     }
                 ]
             },
@@ -1559,6 +1680,10 @@
                     tooltip: {
                         mode: 'index',
                         intersect: false
+                    },
+                    title: {
+                        display: true,
+                        text: 'OBV指标'
                     }
                 },
                 scales: {
@@ -1568,74 +1693,16 @@
                     y: {
                         grid: {
                             color: 'rgba(0, 0, 0, 0.05)'
-                        }
-                    }
-                }
-            }
-        });
-    }
-
-    // 创建布林带图表
-    if (chartData && chartData.closing_prices && chartData['中轨线'] && chartData['上轨线'] && chartData['下轨线']) {
-        const bollingerCtx = document.getElementById('bollingerChart').getContext('2d');
-        const bollingerChart = new Chart(bollingerCtx, {
-            type: 'line',
-            data: {
-                labels: initialFilteredData.filteredLabels,
-                datasets: [
-                    {
-                        label: '收盘价',
-                        data: initialFilteredData.filteredPrices,
-                        borderColor: 'rgb(75, 192, 192)',
-                        backgroundColor: 'rgba(75, 192, 192, 0.1)',
-                        borderWidth: 2,
-                        tension: 0.1,
-                        fill: false
-                    },
-                    {
-                        label: '中轨线',
-                        data: chartData['中轨线'].slice(Math.max(0, chartData['中轨线'].length - initialFilteredData.filteredLabels.length)),
-                        borderColor: 'rgb(128, 128, 128)',
-                        borderWidth: 1,
-                        tension: 0.1,
-                        fill: false
-                    },
-                    {
-                        label: '上轨线',
-                        data: chartData['上轨线'].slice(Math.max(0, chartData['上轨线'].length - initialFilteredData.filteredLabels.length)),
-                        borderColor: 'rgb(255, 99, 132)',
-                        borderWidth: 1,
-                        borderDash: [5, 5],
-                        tension: 0.1,
-                        fill: false
-                    },
-                    {
-                        label: '下轨线',
-                        data: chartData['下轨线'].slice(Math.max(0, chartData['下轨线'].length - initialFilteredData.filteredLabels.length)),
-                        borderColor: 'rgb(54, 162, 235)',
-                        borderWidth: 1,
-                        borderDash: [5, 5],
-                        tension: 0.1,
-                        fill: false
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    tooltip: {
-                        mode: 'index',
-                        intersect: false
-                    }
-                },
-                scales: {
-                    x: {
-                        display: false
-                    },
-                    y: {
-                        grid: {
-                            color: 'rgba(0, 0, 0, 0.05)'
+                        },
+                        ticks: {
+                            callback: function(value) {
+                                if (Math.abs(value) >= 1000000) {
+                                    return (value / 1000000).toFixed(1) + 'M';
+                                } else if (Math.abs(value) >= 1000) {
+                                    return (value / 1000).toFixed(1) + 'K';
+                                }
+                                return value;
+                            }
                         }
                     }
                 }
@@ -1733,9 +1800,10 @@
                     const timeRange = document.getElementById('timeRangeSelect').value;
                     const filteredData = filterDataByTimeRange(timeRange);
 
-                    // 更新图表
-                    closingPriceChart.data.labels = filteredData.filteredLabels;
-                    closingPriceChart.data.datasets[0].data = filteredData.filteredPrices;
+                    // 更新所有图表
+                    updateAllCharts(filteredData);
+
+                    // 清除预测数据
                     closingPriceChart.data.datasets[1].data = [];
                     closingPriceChart.update();
 
@@ -2039,9 +2107,18 @@
                         // });
                     }
 
-                    // 更新图表（使用确保正确排序的数据）
-                    closingPriceChart.data.labels = sortedLabels;
-                    closingPriceChart.data.datasets[0].data = sortedPrices;
+                    // 更新所有图表（使用确保正确排序的数据）
+                    // 创建一个包含排序后数据的对象，与filterDataByTimeRange返回的格式相同
+                    const sortedData = {
+                        filteredLabels: sortedLabels,
+                        filteredPrices: sortedPrices,
+                        startIndex: filteredData.startIndex
+                    };
+
+                    // 更新所有图表
+                    updateAllCharts(sortedData);
+
+                    // 清除预测数据
                     closingPriceChart.data.datasets[1].data = [];
                     closingPriceChart.update();
 
@@ -2114,9 +2191,10 @@
                     const timeRange = document.getElementById('timeRangeSelect').value;
                     const filteredData = filterDataByTimeRange(timeRange);
 
-                    // 更新图表
-                    closingPriceChart.data.labels = filteredData.filteredLabels;
-                    closingPriceChart.data.datasets[0].data = filteredData.filteredPrices;
+                    // 更新所有图表
+                    updateAllCharts(filteredData);
+
+                    // 清除预测数据
                     closingPriceChart.data.datasets[1].data = [];
                     closingPriceChart.update();
 

@@ -67,7 +67,7 @@
                 </div>
             </div>
         </div>
-        
+
         <div class="col-md-4">
             <div class="card shadow-sm model-card">
                 <div class="card-header bg-success text-white">
@@ -95,7 +95,7 @@
                 </div>
             </div>
         </div>
-        
+
         <div class="col-md-4">
             <div class="card shadow-sm model-card">
                 <div class="card-header bg-info text-white">
@@ -125,40 +125,150 @@
         </div>
     </div>
 
+
+
     <!-- 模型文件列表 -->
     <div class="row mb-4">
         <div class="col-12">
             <div class="card shadow-sm">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="bi bi-file-earmark-binary"></i> 模型文件</h5>
+                <div class="card-header bg-light">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="bi bi-file-earmark-binary"></i> 模型文件</h5>
+                        <div>
+                            <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#modelFilesCollapse" aria-expanded="true">
+                                <i class="bi bi-arrows-expand"></i> 展开/折叠
+                            </button>
+                        </div>
+                    </div>
                 </div>
-                <div class="card-body">
-                    {% if model_files %}
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead>
-                                <tr>
-                                    <th>文件名</th>
-                                    <th>大小</th>
-                                    <th>修改时间</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for file in model_files %}
-                                <tr>
-                                    <td>{{ file.name }}</td>
-                                    <td>{{ file.size }}</td>
-                                    <td>{{ file.modified }}</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+                <div class="collapse show" id="modelFilesCollapse">
+                    <div class="card-body">
+                        {% if model_files %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>模型类型</th>
+                                        <th>文件名</th>
+                                        <th>参数量</th>
+                                        <th>大小</th>
+                                        <th>修改时间</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for file in model_files %}
+                                    <tr>
+                                        <td>
+                                            {% if file.type == 'mlp' %}
+                                            <span class="badge bg-primary">MLP</span>
+                                            {% elif file.type == 'lstm' %}
+                                            <span class="badge bg-success">LSTM</span>
+                                            {% elif file.type == 'cnn' %}
+                                            <span class="badge bg-info">CNN</span>
+                                            {% else %}
+                                            <span class="badge bg-secondary">未知</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ file.name }}</td>
+                                        <td>{{ file.total_params if file.total_params else 'N/A' }}</td>
+                                        <td>{{ file.size }}</td>
+                                        <td>{{ file.modified }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle"></i> 未找到模型文件
+                        </div>
+                        {% endif %}
                     </div>
-                    {% else %}
-                    <div class="alert alert-warning">
-                        <i class="bi bi-exclamation-triangle"></i> 未找到模型文件
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 模型比较 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="bi bi-bar-chart"></i> 模型性能比较</h5>
+                        <div>
+                            <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#modelComparisonCollapse" aria-expanded="true">
+                                <i class="bi bi-arrows-expand"></i> 展开/折叠
+                            </button>
+                        </div>
                     </div>
-                    {% endif %}
+                </div>
+                <div class="collapse show" id="modelComparisonCollapse">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <div class="card h-100">
+                                    <div class="card-header bg-light">
+                                        <h6 class="mb-0">准确率比较</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <canvas id="accuracyChart" height="250"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <div class="card h-100">
+                                    <div class="card-header bg-light">
+                                        <h6 class="mb-0">误差指标比较</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <canvas id="errorChart" height="250"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="table-responsive mt-3">
+                            <table class="table table-bordered table-hover metrics-table">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>模型</th>
+                                        <th>准确率</th>
+                                        <th>RMSE</th>
+                                        <th>MAE</th>
+                                        <th>R²</th>
+                                        <th>参数量</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><span class="badge bg-primary">MLP</span></td>
+                                        <td>{{ model_metrics.mlp.accuracy|round(2) }}%</td>
+                                        <td>{{ model_metrics.mlp.rmse|round(2) }}</td>
+                                        <td>{{ model_metrics.mlp.mae|round(2) if model_metrics.mlp.mae else 'N/A' }}</td>
+                                        <td>{{ model_metrics.mlp.r2|round(4) if model_metrics.mlp.r2 else 'N/A' }}</td>
+                                        <td>{{ "{:,}".format(model_details.mlp.params) }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="badge bg-success">LSTM</span></td>
+                                        <td>{{ model_metrics.lstm.accuracy|round(2) }}%</td>
+                                        <td>{{ model_metrics.lstm.rmse|round(2) }}</td>
+                                        <td>{{ model_metrics.lstm.mae|round(2) if model_metrics.lstm.mae else 'N/A' }}</td>
+                                        <td>{{ model_metrics.lstm.r2|round(4) if model_metrics.lstm.r2 else 'N/A' }}</td>
+                                        <td>{{ "{:,}".format(model_details.lstm.params) }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="badge bg-info">CNN</span></td>
+                                        <td>{{ model_metrics.cnn.accuracy|round(2) }}%</td>
+                                        <td>{{ model_metrics.cnn.rmse|round(2) }}</td>
+                                        <td>{{ model_metrics.cnn.mae|round(2) if model_metrics.cnn.mae else 'N/A' }}</td>
+                                        <td>{{ model_metrics.cnn.r2|round(4) if model_metrics.cnn.r2 else 'N/A' }}</td>
+                                        <td>{{ "{:,}".format(model_details.cnn.params) }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -168,34 +278,156 @@
     <div class="row">
         <div class="col-12">
             <div class="card shadow-sm">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="bi bi-terminal"></i> 评估日志</h5>
+                <div class="card-header bg-light">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="bi bi-terminal"></i> 评估日志</h5>
+                        <div>
+                            <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#evaluationLogCollapse" aria-expanded="true">
+                                <i class="bi bi-arrows-expand"></i> 展开/折叠
+                            </button>
+                        </div>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <div id="evaluationLog" class="evaluation-log">
-                        <div class="text-muted">点击"运行评估"按钮开始模型评估...</div>
+                <div class="collapse show" id="evaluationLogCollapse">
+                    <div class="card-body">
+                        <div id="evaluationLog" class="evaluation-log">
+                            <div class="text-muted">点击"运行评估"按钮开始模型评估...</div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+
+
 </div>
 {% endblock %}
 
 {% block scripts %}
+<!-- 隐藏的模型指标数据 -->
+<script id="modelMetricsData" type="application/json">
+    {{ model_metrics|tojson }}
+</script>
+
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        // 初始化图表
+        initCharts();
+
         const runEvaluationBtn = document.getElementById('runEvaluationBtn');
         const evaluationLog = document.getElementById('evaluationLog');
-        
+
+        // 初始化图表函数
+        function initCharts() {
+            try {
+                // 获取模型指标数据
+                const modelMetricsElement = document.getElementById('modelMetricsData');
+                if (!modelMetricsElement) {
+                    console.error('找不到模型指标数据元素');
+                    return;
+                }
+
+                const modelMetrics = JSON.parse(modelMetricsElement.textContent);
+                console.log('模型指标数据:', modelMetrics);
+
+                // 初始化准确率比较图表
+                const accuracyCtx = document.getElementById('accuracyChart');
+                if (accuracyCtx) {
+                    new Chart(accuracyCtx, {
+                        type: 'bar',
+                        data: {
+                            labels: ['MLP', 'LSTM', 'CNN'],
+                            datasets: [{
+                                label: '准确率 (%)',
+                                data: [
+                                    modelMetrics.mlp.accuracy,
+                                    modelMetrics.lstm.accuracy,
+                                    modelMetrics.cnn.accuracy
+                                ],
+                                backgroundColor: [
+                                    'rgba(13, 110, 253, 0.7)',
+                                    'rgba(25, 135, 84, 0.7)',
+                                    'rgba(13, 202, 240, 0.7)'
+                                ],
+                                borderColor: [
+                                    'rgb(13, 110, 253)',
+                                    'rgb(25, 135, 84)',
+                                    'rgb(13, 202, 240)'
+                                ],
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: {
+                                legend: {
+                                    display: false
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            return `准确率: ${context.raw.toFixed(2)}%`;
+                                        }
+                                    }
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: false,
+                                    min: 90,
+                                    max: 100
+                                }
+                            }
+                        }
+                    });
+                }
+
+                // 初始化误差指标比较图表
+                const errorCtx = document.getElementById('errorChart');
+                if (errorCtx) {
+                    new Chart(errorCtx, {
+                        type: 'bar',
+                        data: {
+                            labels: ['MLP', 'LSTM', 'CNN'],
+                            datasets: [{
+                                label: 'RMSE',
+                                data: [
+                                    modelMetrics.mlp.rmse,
+                                    modelMetrics.lstm.rmse,
+                                    modelMetrics.cnn.rmse
+                                ],
+                                backgroundColor: 'rgba(255, 99, 132, 0.7)',
+                                borderColor: 'rgb(255, 99, 132)',
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: {
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            return `RMSE: ${context.raw.toFixed(2)}`;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('初始化图表时出错:', error);
+            }
+        }
+
         runEvaluationBtn.addEventListener('click', function() {
             // 禁用按钮，显示加载状态
             runEvaluationBtn.disabled = true;
             runEvaluationBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 评估中...';
-            
+
             // 清空日志区域
             evaluationLog.innerHTML = '<div class="text-info">正在运行模型评估，请稍候...</div>';
-            
+
             // 发送评估请求
             fetch('/viz/api/run-evaluation', {
                 method: 'POST',
@@ -208,14 +440,14 @@
                 // 恢复按钮状态
                 runEvaluationBtn.disabled = false;
                 runEvaluationBtn.innerHTML = '<i class="bi bi-play-circle"></i> 运行评估';
-                
+
                 if (data.success) {
                     // 显示成功消息
                     evaluationLog.innerHTML = `
                         <div class="text-success mb-3"><i class="bi bi-check-circle"></i> ${data.message}</div>
                         <div class="mb-2"><strong>评估结果:</strong></div>
                     `;
-                    
+
                     // 显示评估结果
                     for (const [model, metrics] of Object.entries(data.metrics)) {
                         evaluationLog.innerHTML += `
@@ -229,7 +461,7 @@
                             </div>
                         `;
                     }
-                    
+
                     // 刷新页面以更新指标显示
                     setTimeout(() => {
                         location.reload();
@@ -245,7 +477,7 @@
                 // 恢复按钮状态
                 runEvaluationBtn.disabled = false;
                 runEvaluationBtn.innerHTML = '<i class="bi bi-play-circle"></i> 运行评估';
-                
+
                 // 显示错误消息
                 evaluationLog.innerHTML = `
                     <div class="text-danger"><i class="bi bi-exclamation-triangle"></i> 评估过程中出错: ${error}</div>

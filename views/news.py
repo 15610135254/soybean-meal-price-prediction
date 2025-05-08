@@ -1,4 +1,5 @@
-from flask import Blueprint, render_template, request, jsonify
+from flask import Blueprint, render_template, request, jsonify, redirect, url_for
+from views.auth import login_required
 import os
 import json
 import logging
@@ -176,7 +177,7 @@ def load_news_data():
         # 获取当前文件所在目录
         current_dir = os.path.dirname(os.path.abspath(__file__))
         news_file_path = os.path.join(current_dir, NEWS_FILE_PATH)
-        
+
         # 检查文件是否存在
         if os.path.exists(news_file_path):
             with open(news_file_path, 'r', encoding='utf-8') as f:
@@ -194,13 +195,13 @@ def save_news_data(news_data):
         # 获取当前文件所在目录
         current_dir = os.path.dirname(os.path.abspath(__file__))
         news_file_path = os.path.join(current_dir, NEWS_FILE_PATH)
-        
+
         # 确保目录存在
         os.makedirs(os.path.dirname(news_file_path), exist_ok=True)
-        
+
         with open(news_file_path, 'w', encoding='utf-8') as f:
             json.dump(news_data, f, ensure_ascii=False, indent=4)
-        
+
         logger.info(f"新闻数据已保存到: {news_file_path}")
         return True
     except Exception as e:
@@ -208,31 +209,32 @@ def save_news_data(news_data):
         return False
 
 @bp.route('/')
+@login_required
 def index():
-    """新闻资讯首页"""
+    """新闻资讯首页（需要登录）"""
     # 获取分类过滤参数
     category = request.args.get('category', 'all')
-    
+
     # 加载新闻数据
     news_data = load_news_data()
-    
+
     # 根据分类过滤新闻
     if category != 'all':
         filtered_news = [news for news in news_data if news['category'] == category]
     else:
         filtered_news = news_data
-    
+
     # 获取头条新闻（标记为featured的新闻）
     featured_news = next((news for news in news_data if news.get('is_featured')), news_data[0] if news_data else None)
-    
+
     # 获取热门新闻（按浏览量排序）
     popular_news = sorted(news_data, key=lambda x: x.get('views', 0), reverse=True)[:5]
-    
+
     # 更新分类的激活状态
     categories = NEWS_CATEGORIES.copy()
     for cat in categories:
         cat['active'] = (cat['id'] == category)
-    
+
     return render_template(
         'news/index.html',
         news_list=filtered_news,
@@ -244,28 +246,29 @@ def index():
     )
 
 @bp.route('/detail/<int:news_id>')
+@login_required
 def detail(news_id):
-    """新闻详情页"""
+    """新闻详情页（需要登录）"""
     # 加载新闻数据
     news_data = load_news_data()
-    
+
     # 查找指定ID的新闻
     news_item = next((news for news in news_data if news['id'] == news_id), None)
-    
+
     if not news_item:
         # 如果找不到新闻，返回404
         return render_template('404.html'), 404
-    
+
     # 增加浏览量
     news_item['views'] = news_item.get('views', 0) + 1
     save_news_data(news_data)
-    
+
     # 获取相关新闻（同类别的其他新闻）
     related_news = [
-        news for news in news_data 
+        news for news in news_data
         if news['category'] == news_item['category'] and news['id'] != news_id
     ][:3]
-    
+
     return render_template(
         'news/detail.html',
         news=news_item,
@@ -277,19 +280,19 @@ def search():
     """搜索新闻"""
     # 获取搜索关键词
     keyword = request.args.get('keyword', '')
-    
+
     if not keyword:
         return jsonify({'error': '请输入搜索关键词'}), 400
-    
+
     # 加载新闻数据
     news_data = load_news_data()
-    
+
     # 搜索标题和内容中包含关键词的新闻
     search_results = [
-        news for news in news_data 
+        news for news in news_data
         if keyword.lower() in news['title'].lower() or keyword.lower() in news['content'].lower()
     ]
-    
+
     return render_template(
         'news/search.html',
         news_list=search_results,
@@ -301,13 +304,13 @@ def search():
 def subscribe():
     """订阅新闻通讯"""
     email = request.form.get('email')
-    
+
     if not email:
         return jsonify({'success': False, 'message': '请输入有效的邮箱地址'}), 400
-    
+
     # 这里应该有保存订阅者邮箱的逻辑
     # 简单起见，我们只返回成功消息
-    
+
     return jsonify({
         'success': True,
         'message': f'感谢订阅！我们会将最新资讯发送到 {email}'

@@ -1,4 +1,5 @@
-from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
+from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash, session
+from views.auth import login_required
 import os
 import json
 import logging
@@ -377,8 +378,9 @@ def save_data(file_path, data):
         return False
 
 @bp.route('/')
+@login_required
 def index():
-    """论坛首页"""
+    """论坛首页（需要登录）"""
     # 获取分类过滤参数
     category = request.args.get('category', 'all')
 
@@ -430,8 +432,9 @@ def index():
     )
 
 @bp.route('/topic/<int:topic_id>')
+@login_required
 def topic(topic_id):
-    """主题详情页"""
+    """主题详情页（需要登录）"""
     # 加载主题数据
     topics = load_data(TOPICS_FILE, SAMPLE_TOPICS)
 
@@ -478,13 +481,15 @@ def topic(topic_id):
     )
 
 @bp.route('/new')
+@login_required
 def new_topic():
-    """发布新主题页面"""
+    """发布新主题页面（需要登录）"""
     return render_template('forum/new_topic.html')
 
 @bp.route('/create', methods=['POST'])
+@login_required
 def create_topic():
-    """创建新主题"""
+    """创建新主题（需要登录）"""
     # 获取表单数据
     category = request.form.get('category')
     title = request.form.get('title')

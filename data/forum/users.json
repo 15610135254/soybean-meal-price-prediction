@@ -78,5 +78,25 @@
         "replies": 234,
         "join_date": "2023-02-28",
         "last_active": "2023-05-01"
+    },
+    {
+        "id": 9,
+        "username": "admin",
+        "avatar": "https://via.placeholder.com/40",
+        "role": "user",
+        "posts": 0,
+        "replies": 0,
+        "join_date": "2025-05-08",
+        "last_active": "2025-05-08"
+    },
+    {
+        "id": 10,
+        "username": "admin1",
+        "avatar": "https://via.placeholder.com/40",
+        "role": "admin",
+        "posts": 0,
+        "replies": 0,
+        "join_date": "2025-05-08",
+        "last_active": "2025-05-08"
     }
 ]
