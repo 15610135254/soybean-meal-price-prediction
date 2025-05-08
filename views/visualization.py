@@ -950,7 +950,7 @@ def model_evaluation():
     try:
         # 获取项目根目录
         base_dir = os.path.dirname(current_app.root_path)
-        model_dir = os.path.join(base_dir, 'saved_models')
+        model_dir = os.path.join(base_dir, 'best_models')
 
         # 记录模型目录路径
         logger.info(f"模型目录路径: {model_dir}")
@@ -959,17 +959,17 @@ def model_evaluation():
         if not os.path.exists(model_dir):
             # 尝试相对于当前文件的路径
             current_dir = os.path.dirname(os.path.abspath(__file__))
-            alt_model_dir = os.path.join(current_dir, '../saved_models')
+            alt_model_dir = os.path.join(current_dir, '../best_models')
             if os.path.exists(alt_model_dir):
                 model_dir = alt_model_dir
                 logger.info(f"使用备用模型目录路径: {model_dir}")
             else:
-                # 尝试直接使用saved_models路径
-                if os.path.exists('saved_models'):
-                    model_dir = 'saved_models'
+                # 尝试直接使用best_models路径
+                if os.path.exists('best_models'):
+                    model_dir = 'best_models'
                     logger.info(f"使用相对模型目录路径: {model_dir}")
                 else:
-                    logger.warning(f"无法找到模型目录: {model_dir}, {alt_model_dir}, saved_models")
+                    logger.warning(f"无法找到模型目录: {model_dir}, {alt_model_dir}, best_models")
 
         if os.path.exists(model_dir):
             # 尝试导入TensorFlow以获取模型详细信息
@@ -1057,7 +1057,7 @@ def get_model_details(model_type):
     try:
         # 获取项目根目录
         base_dir = os.path.dirname(current_app.root_path)
-        model_dir = os.path.join(base_dir, 'saved_models')
+        model_dir = os.path.join(base_dir, 'best_models')
 
         # 记录模型目录路径
         logger.info(f"API - 模型目录路径: {model_dir}")
@@ -1066,17 +1066,17 @@ def get_model_details(model_type):
         if not os.path.exists(model_dir):
             # 尝试相对于当前文件的路径
             current_dir = os.path.dirname(os.path.abspath(__file__))
-            alt_model_dir = os.path.join(current_dir, '../saved_models')
+            alt_model_dir = os.path.join(current_dir, '../best_models')
             if os.path.exists(alt_model_dir):
                 model_dir = alt_model_dir
                 logger.info(f"API - 使用备用模型目录路径: {model_dir}")
             else:
-                # 尝试直接使用saved_models路径
-                if os.path.exists('saved_models'):
-                    model_dir = 'saved_models'
+                # 尝试直接使用best_models路径
+                if os.path.exists('best_models'):
+                    model_dir = 'best_models'
                     logger.info(f"API - 使用相对模型目录路径: {model_dir}")
                 else:
-                    logger.warning(f"API - 无法找到模型目录: {model_dir}, {alt_model_dir}, saved_models")
+                    logger.warning(f"API - 无法找到模型目录: {model_dir}, {alt_model_dir}, best_models")
 
         # 查找对应类型的模型文件
         model_file = None

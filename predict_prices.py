@@ -9,7 +9,7 @@ from sklearn.preprocessing import MinMaxScaler
 # --- 配置 ---
 DEFAULT_DATA_FILE = "model_data/date1.csv"  # 默认数据文件路径
 LOOK_BACK = 20  # 设置默认值为20，这是时间序列预测中常用的窗口大小
-MODEL_DIR = "saved_models"
+MODEL_DIR = "best_models"  # 使用best_models目录中的模型
 SCALER_DIR = "scalers"
 TARGET_COL = 'close' # 确认目标列
 
@@ -52,9 +52,9 @@ def get_latest_data_file():
 
 # 指定要使用的模型文件
 MODEL_FILES = {
-    "MLP": "mlp_20250502_225158.h5",
-    "LSTM": "lstm_20250502_225234.h5",
-    "CNN": "cnn_20250502_225554.h5"
+    "MLP": "mlp_20250508_223913.h5",
+    "LSTM": "lstm_20250508_224629.h5",
+    "CNN": "cnn_20250508_224004.h5"
 }
 
 # --- 辅助函数 (需要与 deep_learning_models.py 中的逻辑保持一致) ---
