@@ -72,10 +72,7 @@
                         <div class="col-md-3">
                             <label for="predictionRange" class="form-label">预测天数</label>
                             <select class="form-select" id="predictionRange">
-                                <option value="3">3天</option>
-                                <option value="7" selected>7天</option>
-                                <option value="14">14天</option>
-                                <option value="30">30天</option>
+                                <option value="1" selected>1天</option>
                             </select>
                         </div>
                         <div class="col-md-3">
@@ -106,7 +103,7 @@
         <div class="col-md-4">
             <div class="card data-card bg-light">
                 <div class="card-body text-center">
-                    <h5 class="card-title" id="prediction-title">预测价格</h5>
+                    <h5 class="card-title" id="prediction-title">预测价格 (1天后)</h5>
                     <div id="prediction-loading" class="text-center py-2">
                         <div class="spinner-border spinner-border-sm text-primary" role="status">
                             <span class="visually-hidden">加载中...</span>
@@ -152,6 +149,9 @@
                         </div>
                         <canvas id="closingPriceChart" style="display: none;"></canvas>
                     </div>
+                    <div class="chart-container" style="height: 150px;">
+                        <canvas id="volumeChart"></canvas>
+                    </div>
                     <div class="d-flex justify-content-center">
                         <div class="btn-group" role="group">
                             <button type="button" class="btn btn-sm btn-outline-secondary" id="zoomInBtn">
@@ -173,6 +173,118 @@
                     <div id="debugInfo" class="mt-3 p-3 bg-light" style="display: none; overflow: auto; max-height: 200px; font-family: monospace; font-size: 12px;">
                         <h6>调试信息</h6>
                         <div id="debugContent"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 技术指标面板 -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-graph-up"></i> RSI指标</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container" style="height: 250px;">
+                        <canvas id="rsiChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-graph-up"></i> MACD指标</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container" style="height: 250px;">
+                        <canvas id="macdChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 季节性分析和相关性热力图 -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-calendar"></i> 季节性分析</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container" style="height: 250px;">
+                        <canvas id="seasonalityChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-grid-3x3"></i> 相关性热力图</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container" style="height: 250px;">
+                        <canvas id="correlationChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 技术指标面板 -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-graph-up"></i> RSI指标</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container" style="height: 250px;">
+                        <canvas id="rsiChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-graph-up"></i> MACD指标</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container" style="height: 250px;">
+                        <canvas id="macdChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- KDJ指标和布林带 -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-graph-up"></i> KDJ指标</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container" style="height: 250px;">
+                        <canvas id="kdjChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-graph-up"></i> 布林带</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container" style="height: 250px;">
+                        <canvas id="bollingerChart"></canvas>
                     </div>
                 </div>
             </div>
@@ -229,6 +341,7 @@
                 </div>
                 <div class="card-body">
                     <div class="d-grid gap-2">
+                        {% if session.user_role == 'admin' %}
                         <button class="btn btn-outline-primary mb-3" type="button" data-bs-toggle="modal" data-bs-target="#uploadDataModal">
                             <i class="bi bi-upload"></i> 上传新数据
                         </button>
@@ -238,6 +351,11 @@
                         <button class="btn btn-outline-danger" type="button" data-bs-toggle="modal" data-bs-target="#deleteDataModal">
                             <i class="bi bi-trash"></i> 删除数据
                         </button>
+                        {% else %}
+                        <div class="alert alert-secondary">
+                            <i class="bi bi-lock"></i> 数据管理功能仅对管理员开放
+                        </div>
+                        {% endif %}
                     </div>
 
                     <hr class="my-4">
@@ -373,19 +491,19 @@
     let DATA_FILE_PATH = "{{ data_path | safe }}";
 
     // 记录初始数据源信息
-    console.log("初始数据源:", DATA_FILE_PATH);
+    // console.log("初始数据源:", DATA_FILE_PATH);
 
     // 调试输出模型指标
-    console.log('模型指标:', modelMetrics);
+    // console.log('模型指标:', modelMetrics);
 
     try {
         // 检查 chart_data 是否已经是对象
         const rawData = {{ chart_data | safe }};
-        console.log("原始数据类型:", typeof rawData);
+        // console.log("原始数据类型:", typeof rawData);
 
         // 如果是字符串，则解析为JSON；如果已经是对象，则直接使用
         chartData = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
-        console.log("加载的图表数据:", chartData);
+        // console.log("加载的图表数据:", chartData);
 
         // 检查数据是否有效
         if (chartData && chartData.labels && chartData.closing_prices) {
@@ -393,20 +511,20 @@
             closingPrices = chartData.closing_prices;
 
             // 显示数据加载成功消息
-            console.log(`成功加载数据: ${labels.length} 条记录`);
+            // console.log(`成功加载数据: ${labels.length} 条记录`);
 
             // 更新表格中的实际数据
             updateDataTable(chartData);
         } else if (chartData && chartData.error) {
             // 显示错误消息
-            console.error("数据加载错误:", chartData.error);
+            // console.error("数据加载错误:", chartData.error);
             alert("数据加载错误: " + chartData.error);
 
             // 使用空数组作为默认值
             labels = [];
             closingPrices = [];
         } else {
-            console.error("数据格式无效");
+            // console.error("数据格式无效");
             alert("数据格式无效，无法显示图表");
 
             // 使用空数组作为默认值
@@ -414,7 +532,7 @@
             closingPrices = [];
         }
     } catch (e) {
-        console.error("解析数据时出错:", e);
+        // console.error("解析数据时出错:", e);
         alert("解析数据时出错: " + e.message);
 
         // 使用空数组作为默认值
@@ -426,7 +544,7 @@
     if (!labels || labels.length === 0) {
         labels = ['2023-04-25', '2023-04-26', '2023-04-27', '2023-04-28', '2023-04-29', '2023-04-30', '2023-05-01', '2023-05-02', '2023-05-03'];
         closingPrices = [3350, 3370, 3380, 3390, 3400, 3390, 3380, 3420, 3456];
-        console.log("使用示例数据进行演示");
+        // console.log("使用示例数据进行演示");
     }
 
     // 预测数据变量
@@ -460,14 +578,14 @@
             predictionLabels = data.dates || [];
             predictionPrices = data.prices || [];
 
-            console.log(`成功获取 ${model} 模型的预测数据:`, data);
+            // console.log(`成功获取 ${model} 模型的预测数据:`, data);
 
             return {
                 labels: predictionLabels,
                 prices: predictionPrices
             };
         } catch (error) {
-            console.error('获取预测数据时出错:', error);
+            // console.error('获取预测数据时出错:', error);
             // 在出错时返回空数据
             return {
                 labels: [],
@@ -484,14 +602,14 @@
             const chartElement = document.getElementById('closingPriceChart');
             if (chartElement) {
                 chartElement.style.display = 'block';
-                console.log('确保图表可见');
+                // console.log('确保图表可见');
             }
 
             // 强制刷新图表区域
             setTimeout(() => {
                 if (closingPriceChart) {
                     closingPriceChart.update();
-                    console.log('强制更新图表');
+                    // console.log('强制更新图表');
                 }
             }, 100);
         }
@@ -502,11 +620,11 @@
         if (show) {
             // 创建并显示加载指示器
             createLoadingIndicator();
-            console.log('显示加载指示器');
+            // console.log('显示加载指示器');
         } else {
             // 移除加载指示器
             removeLoadingIndicator();
-            console.log('移除加载指示器');
+            // console.log('移除加载指示器');
         }
     }
 
@@ -569,36 +687,36 @@
 
     // 检查Chart.js和插件是否正确加载
     try {
-        console.log("Chart.js 版本:", Chart.version);
+        // console.log("Chart.js 版本:", Chart.version);
 
         // 检查插件是否已经注册
         const registeredPlugins = Chart.registry.plugins.items;
-        console.log("已注册的插件:", registeredPlugins);
+        // console.log("已注册的插件:", registeredPlugins);
 
         // 检查是否需要手动注册插件
         const hasAnnotationPlugin = Chart.registry.plugins.get('annotation') !== undefined;
         if (!hasAnnotationPlugin) {
-            console.log("尝试手动注册 annotation 插件");
+            // console.log("尝试手动注册 annotation 插件");
             if (window.ChartAnnotation) {
                 Chart.register(window.ChartAnnotation);
-                console.log("成功注册 annotation 插件");
+                // console.log("成功注册 annotation 插件");
             } else {
-                console.warn("找不到 ChartAnnotation 对象");
+                // console.warn("找不到 ChartAnnotation 对象");
             }
         }
 
         const hasZoomPlugin = Chart.registry.plugins.get('zoom') !== undefined;
         if (!hasZoomPlugin) {
-            console.log("尝试手动注册 zoom 插件");
+            // console.log("尝试手动注册 zoom 插件");
             if (window.ChartZoom) {
                 Chart.register(window.ChartZoom);
-                console.log("成功注册 zoom 插件");
+                // console.log("成功注册 zoom 插件");
             } else {
-                console.warn("找不到 ChartZoom 对象");
+                // console.warn("找不到 ChartZoom 对象");
             }
         }
     } catch (e) {
-        console.error("检查Chart.js插件时出错:", e);
+        // console.error("检查Chart.js插件时出错:", e);
     }
 
     // 隐藏加载指示器，显示图表
@@ -673,7 +791,7 @@
                 }
             }
         } catch (error) {
-            console.error('初始预测加载失败:', error);
+            // console.error('初始预测加载失败:', error);
             showPredictionError('初始预测加载失败，请点击"预测"按钮重试。');
         }
     }
@@ -683,14 +801,14 @@
 
     // 根据时间范围过滤数据
     function filterDataByTimeRange(days) {
-        console.log("开始过滤数据，当前完整数据集信息:", {
+        /* console.log("开始过滤数据，当前完整数据集信息:", {
             "数据源": DATA_FILE_PATH || "未知",
             "日期数量": labels ? labels.length : 0,
             "日期范围": labels && labels.length > 0 ? labels[0] + " 至 " + labels[labels.length-1] : "无数据"
-        });
+        }); */
 
         if (days === 'all' || !labels || labels.length === 0) {
-            console.log("显示全部数据，日期范围:", labels && labels.length > 0 ? labels[0] + " 至 " + labels[labels.length-1] : "无数据");
+            // console.log("显示全部数据，日期范围:", labels && labels.length > 0 ? labels[0] + " 至 " + labels[labels.length-1] : "无数据");
             return {
                 filteredLabels: labels,
                 filteredPrices: closingPrices,
@@ -711,7 +829,7 @@
 
         // 检查过滤后的数据是否按日期从早到晚排序
         if (filteredLabels.length > 1 && new Date(filteredLabels[0]) > new Date(filteredLabels[filteredLabels.length-1])) {
-            console.warn("过滤后的数据是倒序的，正在重新排序...");
+            // console.warn("过滤后的数据是倒序的，正在重新排序...");
 
             // 创建日期和价格的配对数组
             let pairs = filteredLabels.map((label, index) => {
@@ -728,19 +846,19 @@
             filteredLabels = pairs.map(pair => pair.date);
             filteredPrices = pairs.map(pair => pair.price);
 
-            console.log("过滤数据重新排序后:", {
-                "第一个日期": filteredLabels[0],
-                "最后一个日期": filteredLabels[filteredLabels.length-1]
-            });
+            // console.log("过滤数据重新排序后:", {
+            //     "第一个日期": filteredLabels[0],
+            //     "最后一个日期": filteredLabels[filteredLabels.length-1]
+            // });
         }
 
-        console.log(`显示最近 ${daysNum} 天数据，过滤后信息:`, {
+        /* console.log(`显示最近 ${daysNum} 天数据，过滤后信息:`, {
             "过滤前日期数量": labels.length,
             "过滤后日期数量": filteredLabels.length,
             "过滤后日期范围": filteredLabels.length > 0 ? filteredLabels[0] + " 至 " + filteredLabels[filteredLabels.length-1] : "无数据",
             "过滤后前5个日期": filteredLabels.length > 0 ? filteredLabels.slice(0, Math.min(5, filteredLabels.length)).join(", ") : "无数据",
             "过滤后后5个日期": filteredLabels.length > 0 ? filteredLabels.slice(-Math.min(5, filteredLabels.length)).join(", ") : "无数据"
-        });
+        }); */
 
         return {
             filteredLabels,
@@ -752,6 +870,36 @@
     // 初始过滤数据（默认显示30天）
     const initialTimeRange = document.getElementById('timeRangeSelect').value;
     const initialFilteredData = filterDataByTimeRange(initialTimeRange);
+
+    // 准备K线图数据
+    const ohlcData = [];
+    const volumeData = [];
+
+    // 确保所有必要的数据都存在
+    if (chartData && chartData.labels && chartData.closing_prices &&
+        chartData.opening_prices && chartData.high_prices && chartData.low_prices &&
+        chartData.volumes) {
+
+        for (let i = 0; i < chartData.labels.length; i++) {
+            // 创建K线数据
+            ohlcData.push({
+                x: chartData.labels[i],
+                o: chartData.opening_prices[i],
+                h: chartData.high_prices[i],
+                l: chartData.low_prices[i],
+                c: chartData.closing_prices[i]
+            });
+
+            // 创建成交量数据
+            volumeData.push({
+                x: chartData.labels[i],
+                y: chartData.volumes[i],
+                // 根据涨跌设置颜色
+                color: i > 0 && chartData.closing_prices[i] >= chartData.closing_prices[i-1] ?
+                       'rgba(75, 192, 192, 0.5)' : 'rgba(255, 99, 132, 0.5)'
+            });
+        }
+    }
 
     // 创建图表
     const closingPriceChart = new Chart(ctx, {
@@ -851,6 +999,70 @@
         }
     });
 
+    // 创建成交量图表
+    const volumeCtx = document.getElementById('volumeChart').getContext('2d');
+    const volumeChart = new Chart(volumeCtx, {
+        type: 'bar',
+        data: {
+            labels: initialFilteredData.filteredLabels,
+            datasets: [{
+                label: '成交量',
+                data: chartData && chartData.volumes ?
+                      chartData.volumes.slice(Math.max(0, chartData.volumes.length - initialFilteredData.filteredLabels.length)) :
+                      [],
+                backgroundColor: function(context) {
+                    if (!chartData || !chartData.closing_prices) return 'rgba(75, 192, 192, 0.5)';
+
+                    const index = context.dataIndex;
+                    const dataLength = initialFilteredData.filteredLabels.length;
+                    const dataStartIndex = Math.max(0, chartData.closing_prices.length - dataLength);
+
+                    const actualIndex = dataStartIndex + index;
+                    if (actualIndex <= 0 || actualIndex >= chartData.closing_prices.length) return 'rgba(75, 192, 192, 0.5)';
+
+                    return chartData.closing_prices[actualIndex] >= chartData.closing_prices[actualIndex-1] ?
+                           'rgba(75, 192, 192, 0.5)' : 'rgba(255, 99, 132, 0.5)';
+                },
+                borderColor: 'rgba(0, 0, 0, 0.1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false
+                }
+            },
+            scales: {
+                x: {
+                    display: false
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.05)'
+                    },
+                    ticks: {
+                        callback: function(value) {
+                            if (value >= 1000000) {
+                                return (value / 1000000).toFixed(1) + 'M';
+                            } else if (value >= 1000) {
+                                return (value / 1000).toFixed(1) + 'K';
+                            }
+                            return value;
+                        }
+                    }
+                }
+            }
+        }
+    });
+
     // 更新数据表格
     function updateDataTable(data) {
         // 只有当有足够的数据时才更新表格
@@ -906,10 +1118,10 @@
             if (closingPriceChart.zoom && typeof closingPriceChart.zoom === 'function') {
                 closingPriceChart.zoom(1.1);
             } else {
-                console.warn("图表没有 zoom 方法");
+                // console.warn("图表没有 zoom 方法");
             }
         } catch (e) {
-            console.error("缩放操作失败:", e);
+            // console.error("缩放操作失败:", e);
         }
     });
 
@@ -919,10 +1131,10 @@
             if (closingPriceChart.zoom && typeof closingPriceChart.zoom === 'function') {
                 closingPriceChart.zoom(0.9);
             } else {
-                console.warn("图表没有 zoom 方法");
+                // console.warn("图表没有 zoom 方法");
             }
         } catch (e) {
-            console.error("缩放操作失败:", e);
+            // console.error("缩放操作失败:", e);
         }
     });
 
@@ -932,12 +1144,12 @@
             if (closingPriceChart.resetZoom && typeof closingPriceChart.resetZoom === 'function') {
                 closingPriceChart.resetZoom();
             } else {
-                console.warn("图表没有 resetZoom 方法");
+                // console.warn("图表没有 resetZoom 方法");
                 // 尝试通过重新加载页面来重置
                 location.reload();
             }
         } catch (e) {
-            console.error("重置缩放操作失败:", e);
+            // console.error("重置缩放操作失败:", e);
             // 如果重置失败，尝试重新加载页面
             location.reload();
         }
@@ -950,8 +1162,8 @@
         // 获取选择的预测模型
         const selectedModel = document.getElementById('modelSelect').value;
 
-        // 获取选择的预测天数
-        const predictionDays = document.getElementById('predictionRange').value;
+        // 预测天数固定为1天
+        const predictionDays = '1';
 
         // 更新当前模型
         currentModel = selectedModel;
@@ -991,10 +1203,10 @@
                 document.getElementById('prediction-loading').style.display = 'none';
                 document.getElementById('prediction-content').style.display = 'block';
 
-                // 更新预测天数显示
+                // 预测天数固定为1天
                 const predictionTitle = document.getElementById('prediction-title');
                 if (predictionTitle) {
-                    predictionTitle.textContent = `预测价格 (${predictionDays}天后)`;
+                    predictionTitle.textContent = '预测价格 (1天后)';
                 }
 
                 // 更新预测价格
@@ -1023,11 +1235,11 @@
                     }
                 }
             } else {
-                console.warn('预测API返回了空数据');
+                // console.warn('预测API返回了空数据');
                 showPredictionError('无法获取预测数据，请稍后再试。');
             }
         } catch (error) {
-            console.error('获取预测数据时出错:', error);
+            // console.error('获取预测数据时出错:', error);
             showPredictionError('获取预测数据时出错: ' + error.message);
         } finally {
             // 移除加载指示器
@@ -1037,19 +1249,19 @@
             const chartElement = document.getElementById('closingPriceChart');
             if (chartElement) {
                 chartElement.style.display = 'block';
-                console.log('确保图表可见');
+                // console.log('确保图表可见');
             }
 
             // 强制刷新图表区域
             setTimeout(() => {
                 if (closingPriceChart) {
                     closingPriceChart.update();
-                    console.log('强制更新图表');
+                    // console.log('强制更新图表');
                 }
             }, 100);
         }
 
-        console.log(`预测条件: 时间范围=${timeRange}天, 预测模型=${selectedModel}, 预测天数=${predictionDays}天`);
+        // console.log(`预测条件: 时间范围=${timeRange}天, 预测模型=${selectedModel}, 预测天数=${predictionDays}天`);
 
         // 更新模型说明
         updateModelDescription(selectedModel);
@@ -1076,12 +1288,12 @@
         }
 
         // 从后端获取的模型指标中获取准确率
-        console.log(`获取 ${model} 模型的准确率:`, modelMetrics && modelMetrics[model] ? modelMetrics[model].accuracy : '未找到');
+        // console.log(`获取 ${model} 模型的准确率:`, modelMetrics && modelMetrics[model] ? modelMetrics[model].accuracy : '未找到');
 
         if (modelMetrics && modelMetrics[model] && modelMetrics[model].accuracy !== undefined) {
             // 使用模型指标中的准确率
             accuracy = modelMetrics[model].accuracy.toFixed(2) + '%';
-            console.log(`使用模型指标中的准确率: ${accuracy}`);
+            // console.log(`使用模型指标中的准确率: ${accuracy}`);
         } else {
             // 如果没有获取到准确率，使用默认值
             switch(model) {
@@ -1090,7 +1302,7 @@
                 case 'cnn': accuracy = '97.25%'; break;
                 default: accuracy = 'N/A';
             }
-            console.log(`使用默认准确率: ${accuracy}`);
+            // console.log(`使用默认准确率: ${accuracy}`);
         }
 
         // 更新准确率显示
@@ -1154,7 +1366,7 @@
         }
 
         // 显示错误提示
-        console.error('预测失败:', errorMessage);
+        // console.error('预测失败:', errorMessage);
     }
 
     // 初始化时更新模型说明
@@ -1172,15 +1384,264 @@
         document.getElementById('applyFiltersBtn').click();
     });
 
-    // 添加预测天数选择的事件监听器
-    document.getElementById('predictionRange').addEventListener('change', function() {
-        // 立即更新预测天数显示
-        const predictionDays = this.value;
-        const predictionTitle = document.getElementById('prediction-title');
-        if (predictionTitle) {
-            predictionTitle.textContent = `预测价格 (${predictionDays}天后)`;
-        }
-    });
+    // 预测天数固定为1天
+    document.getElementById('predictionRange').value = '1';
+    const predictionTitle = document.getElementById('prediction-title');
+    if (predictionTitle) {
+        predictionTitle.textContent = '预测价格 (1天后)';
+    }
+
+    // 创建RSI指标图表
+    if (chartData && chartData.rsi) {
+        const rsiCtx = document.getElementById('rsiChart').getContext('2d');
+        const rsiChart = new Chart(rsiCtx, {
+            type: 'line',
+            data: {
+                labels: initialFilteredData.filteredLabels,
+                datasets: [
+                    {
+                        label: 'RSI',
+                        data: chartData.rsi.slice(Math.max(0, chartData.rsi.length - initialFilteredData.filteredLabels.length)),
+                        borderColor: 'rgb(255, 159, 64)',
+                        backgroundColor: 'rgba(255, 159, 64, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.1,
+                        fill: true
+                    },
+                    {
+                        label: '超买线 (70)',
+                        data: Array(initialFilteredData.filteredLabels.length).fill(70),
+                        borderColor: 'rgba(255, 99, 132, 0.7)',
+                        borderWidth: 1,
+                        borderDash: [5, 5],
+                        pointRadius: 0,
+                        fill: false
+                    },
+                    {
+                        label: '超卖线 (30)',
+                        data: Array(initialFilteredData.filteredLabels.length).fill(30),
+                        borderColor: 'rgba(75, 192, 192, 0.7)',
+                        borderWidth: 1,
+                        borderDash: [5, 5],
+                        pointRadius: 0,
+                        fill: false
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false
+                    }
+                },
+                scales: {
+                    x: {
+                        display: false
+                    },
+                    y: {
+                        min: 0,
+                        max: 100,
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // 创建MACD指标图表
+    if (chartData && chartData.MACD && chartData.MACD_Signal && chartData.MACD_Hist) {
+        const macdCtx = document.getElementById('macdChart').getContext('2d');
+        const macdChart = new Chart(macdCtx, {
+            type: 'line',
+            data: {
+                labels: initialFilteredData.filteredLabels,
+                datasets: [
+                    {
+                        label: 'MACD',
+                        data: chartData.MACD.slice(Math.max(0, chartData.MACD.length - initialFilteredData.filteredLabels.length)),
+                        borderColor: 'rgb(255, 99, 132)',
+                        backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.1,
+                        fill: false
+                    },
+                    {
+                        label: 'Signal',
+                        data: chartData.MACD_Signal.slice(Math.max(0, chartData.MACD_Signal.length - initialFilteredData.filteredLabels.length)),
+                        borderColor: 'rgb(75, 192, 192)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.1,
+                        fill: false
+                    },
+                    {
+                        type: 'bar',
+                        label: 'Histogram',
+                        data: chartData.MACD_Hist.slice(Math.max(0, chartData.MACD_Hist.length - initialFilteredData.filteredLabels.length)),
+                        backgroundColor: function(context) {
+                            const value = context.dataset.data[context.dataIndex];
+                            return value >= 0 ? 'rgba(75, 192, 192, 0.5)' : 'rgba(255, 99, 132, 0.5)';
+                        },
+                        borderColor: 'rgba(0, 0, 0, 0.1)',
+                        borderWidth: 1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false
+                    }
+                },
+                scales: {
+                    x: {
+                        display: false
+                    },
+                    y: {
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // 创建KDJ指标图表
+    if (chartData && chartData.K && chartData.D && chartData.J) {
+        const kdjCtx = document.getElementById('kdjChart').getContext('2d');
+        const kdjChart = new Chart(kdjCtx, {
+            type: 'line',
+            data: {
+                labels: initialFilteredData.filteredLabels,
+                datasets: [
+                    {
+                        label: 'K值',
+                        data: chartData.K.slice(Math.max(0, chartData.K.length - initialFilteredData.filteredLabels.length)),
+                        borderColor: 'rgb(255, 99, 132)',
+                        backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.1,
+                        fill: false
+                    },
+                    {
+                        label: 'D值',
+                        data: chartData.D.slice(Math.max(0, chartData.D.length - initialFilteredData.filteredLabels.length)),
+                        borderColor: 'rgb(75, 192, 192)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.1,
+                        fill: false
+                    },
+                    {
+                        label: 'J值',
+                        data: chartData.J.slice(Math.max(0, chartData.J.length - initialFilteredData.filteredLabels.length)),
+                        borderColor: 'rgb(255, 159, 64)',
+                        backgroundColor: 'rgba(255, 159, 64, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.1,
+                        fill: false
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false
+                    }
+                },
+                scales: {
+                    x: {
+                        display: false
+                    },
+                    y: {
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // 创建布林带图表
+    if (chartData && chartData.closing_prices && chartData['中轨线'] && chartData['上轨线'] && chartData['下轨线']) {
+        const bollingerCtx = document.getElementById('bollingerChart').getContext('2d');
+        const bollingerChart = new Chart(bollingerCtx, {
+            type: 'line',
+            data: {
+                labels: initialFilteredData.filteredLabels,
+                datasets: [
+                    {
+                        label: '收盘价',
+                        data: initialFilteredData.filteredPrices,
+                        borderColor: 'rgb(75, 192, 192)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.1,
+                        fill: false
+                    },
+                    {
+                        label: '中轨线',
+                        data: chartData['中轨线'].slice(Math.max(0, chartData['中轨线'].length - initialFilteredData.filteredLabels.length)),
+                        borderColor: 'rgb(128, 128, 128)',
+                        borderWidth: 1,
+                        tension: 0.1,
+                        fill: false
+                    },
+                    {
+                        label: '上轨线',
+                        data: chartData['上轨线'].slice(Math.max(0, chartData['上轨线'].length - initialFilteredData.filteredLabels.length)),
+                        borderColor: 'rgb(255, 99, 132)',
+                        borderWidth: 1,
+                        borderDash: [5, 5],
+                        tension: 0.1,
+                        fill: false
+                    },
+                    {
+                        label: '下轨线',
+                        data: chartData['下轨线'].slice(Math.max(0, chartData['下轨线'].length - initialFilteredData.filteredLabels.length)),
+                        borderColor: 'rgb(54, 162, 235)',
+                        borderWidth: 1,
+                        borderDash: [5, 5],
+                        tension: 0.1,
+                        fill: false
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false
+                    }
+                },
+                scales: {
+                    x: {
+                        display: false
+                    },
+                    y: {
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        }
+                    }
+                }
+            }
+        });
+    }
 
 
 
@@ -1189,7 +1650,6 @@
         // 获取表单和文件
         const form = document.getElementById('uploadDataForm');
         const fileInput = document.getElementById('dataFile');
-        const replaceExisting = document.getElementById('replaceExistingData').checked;
 
         // 检查是否选择了文件
         if (!fileInput.files || fileInput.files.length === 0) {
@@ -1207,7 +1667,6 @@
         // 创建FormData对象
         const formData = new FormData();
         formData.append('file', file);
-        formData.append('replaceExisting', replaceExisting);
 
         // 显示上传状态
         const uploadStatus = document.getElementById('uploadStatus');
@@ -1252,8 +1711,8 @@
                     // 尝试解析JSON
                     return JSON.parse(text);
                 } catch (e) {
-                    console.error('JSON解析错误:', e);
-                    console.log('原始响应:', text);
+                    // console.error('JSON解析错误:', e);
+                    // console.log('原始响应:', text);
                     throw new Error('服务器返回的数据格式无效');
                 }
             });
@@ -1309,7 +1768,7 @@
             }
         })
         .catch(error => {
-            console.error('上传文件时出错:', error);
+            // console.error('上传文件时出错:', error);
             uploadStatusText.textContent = `上传失败: ${error.message}`;
             uploadProgressBar.classList.remove('bg-primary');
             uploadProgressBar.classList.add('bg-danger');
@@ -1519,26 +1978,26 @@
                     closingPrices = data.chart_data.closing_prices;
 
                     // 详细记录数据变化，检查是否更换了数据集
-                    console.log("编辑前数据信息:", {
-                        "日期数量": oldLabelsLength,
-                        "日期范围": oldLabelsFirst + " 至 " + oldLabelsLast,
-                        "前5个日期": labels && labels.length >= 5 ? labels.slice(0, 5).join(", ") : "无足够数据",
-                        "后5个日期": labels && labels.length >= 5 ? labels.slice(-5).join(", ") : "无足够数据"
-                    });
+                    // console.log("编辑前数据信息:", {
+                    //     "日期数量": oldLabelsLength,
+                    //     "日期范围": oldLabelsFirst + " 至 " + oldLabelsLast,
+                    //     "前5个日期": labels && labels.length >= 5 ? labels.slice(0, 5).join(", ") : "无足够数据",
+                    //     "后5个日期": labels && labels.length >= 5 ? labels.slice(-5).join(", ") : "无足够数据"
+                    // });
 
-                    console.log("编辑后数据信息:", {
-                        "日期数量": labels.length,
-                        "日期范围": labels[0] + " 至 " + labels[labels.length-1],
-                        "前5个日期": labels.slice(0, 5).join(", "),
-                        "后5个日期": labels.slice(-5).join(", ")
-                    });
+                    // console.log("编辑后数据信息:", {
+                    //     "日期数量": labels.length,
+                    //     "日期范围": labels[0] + " 至 " + labels[labels.length-1],
+                    //     "前5个日期": labels.slice(0, 5).join(", "),
+                    //     "后5个日期": labels.slice(-5).join(", ")
+                    // });
 
                     // 检查数据集是否被更换（通过比较日期范围的起始日期）
                     if (oldLabelsFirst !== labels[0]) {
-                        console.warn("警告：数据集的起始日期发生了变化，可能更换了数据源！");
-                        console.warn("原始起始日期: " + oldLabelsFirst + ", 新起始日期: " + labels[0]);
+                        // console.warn("警告：数据集的起始日期发生了变化，可能更换了数据源！");
+                        // console.warn("原始起始日期: " + oldLabelsFirst + ", 新起始日期: " + labels[0]);
                     } else {
-                        console.log("数据集的起始日期未变化，仍然使用相同的数据源");
+                        // console.log("数据集的起始日期未变化，仍然使用相同的数据源");
                     }
 
                     // 根据时间范围过滤数据
@@ -1546,10 +2005,10 @@
                     const filteredData = filterDataByTimeRange(timeRange);
 
                     // 检查数据是否按日期从早到晚排序
-                    console.log("更新图表前检查数据排序:", {
-                        "第一个日期": filteredData.filteredLabels[0],
-                        "最后一个日期": filteredData.filteredLabels[filteredData.filteredLabels.length-1]
-                    });
+                    // console.log("更新图表前检查数据排序:", {
+                    //     "第一个日期": filteredData.filteredLabels[0],
+                    //     "最后一个日期": filteredData.filteredLabels[filteredData.filteredLabels.length-1]
+                    // });
 
                     // 确保数据是按日期从早到晚排序的
                     let sortedLabels = [...filteredData.filteredLabels];
@@ -1557,7 +2016,7 @@
 
                     // 如果发现数据是倒序的（最后一个日期早于第一个日期），则进行排序
                     if (new Date(sortedLabels[0]) > new Date(sortedLabels[sortedLabels.length-1])) {
-                        console.warn("检测到数据倒序，正在重新排序...");
+                        // console.warn("检测到数据倒序，正在重新排序...");
 
                         // 创建日期和价格的配对数组
                         let pairs = sortedLabels.map((label, index) => {
@@ -1574,10 +2033,10 @@
                         sortedLabels = pairs.map(pair => pair.date);
                         sortedPrices = pairs.map(pair => pair.price);
 
-                        console.log("重新排序后:", {
-                            "第一个日期": sortedLabels[0],
-                            "最后一个日期": sortedLabels[sortedLabels.length-1]
-                        });
+                        // console.log("重新排序后:", {
+                        //     "第一个日期": sortedLabels[0],
+                        //     "最后一个日期": sortedLabels[sortedLabels.length-1]
+                        // });
                     }
 
                     // 更新图表（使用确保正确排序的数据）
@@ -1603,7 +2062,7 @@
                 showNotification('编辑失败: ' + (data.error || '未知错误'), 'danger');
             }
         } catch (error) {
-            console.error('编辑数据时出错:', error);
+            // console.error('编辑数据时出错:', error);
             showNotification('编辑失败: ' + error.message, 'danger');
         }
     });
@@ -1678,7 +2137,7 @@
                 showNotification('删除失败: ' + (data.error || '未知错误'), 'danger');
             }
         } catch (error) {
-            console.error('删除数据时出错:', error);
+            // console.error('删除数据时出错:', error);
             showNotification('删除失败: ' + error.message, 'danger');
         }
     });
@@ -1686,14 +2145,14 @@
     // 更新数据表格函数
     function updateDataTable(chartData) {
         if (!chartData || !chartData.labels || !chartData.closing_prices) {
-            console.error('无法更新数据表格：数据无效');
+            // console.error('无法更新数据表格：数据无效');
             return;
         }
 
         // 获取表格元素
         const tableBody = document.querySelector('#dataTable tbody');
         if (!tableBody) {
-            console.error('无法找到数据表格的tbody元素');
+            // console.error('无法找到数据表格的tbody元素');
             return;
         }
 

@@ -150,7 +150,7 @@
                                     <h6 class="mb-0">
                                         <span class="badge bg-danger topic-badge me-1">置顶</span>
                                         <span class="badge bg-warning topic-badge me-1">公告</span>
-                                        论坛规则更新：请文明发言，禁止发布广告内容
+                                        <a href="{{ url_for('forum.topic', topic_id=1) }}" class="text-decoration-none">论坛规则更新：请文明发言，禁止发布广告内容</a>
                                     </h6>
                                     <small class="text-muted">2023-04-20</small>
                                 </div>
@@ -183,7 +183,7 @@
                                     <h6 class="mb-0">
                                         <span class="badge bg-danger topic-badge me-1">热门</span>
                                         <span class="badge bg-primary topic-badge me-1">市场分析</span>
-                                        如何看待近期豆粕价格波动？
+                                        <a href="{{ url_for('forum.topic', topic_id=2) }}" class="text-decoration-none">如何看待近期豆粕价格波动？</a>
                                     </h6>
                                     <small class="text-muted">2023-05-02</small>
                                 </div>
@@ -205,7 +205,7 @@
                                     <h6 class="mb-0">
                                         <span class="badge bg-danger topic-badge me-1">热门</span>
                                         <span class="badge bg-warning topic-badge me-1">交易策略</span>
-                                        深度学习模型在期货预测中的应用
+                                        <a href="{{ url_for('forum.topic', topic_id=3) }}" class="text-decoration-none">深度学习模型在期货预测中的应用</a>
                                     </h6>
                                     <small class="text-muted">2023-05-01</small>
                                 </div>
@@ -237,7 +237,7 @@
                                 <div class="d-flex justify-content-between align-items-center">
                                     <h6 class="mb-0">
                                         <span class="badge bg-primary topic-badge me-1">市场分析</span>
-                                        豆粕期货交易策略分享
+                                        <a href="{{ url_for('forum.topic', topic_id=4) }}" class="text-decoration-none">豆粕期货交易策略分享</a>
                                     </h6>
                                     <small class="text-muted">2023-05-03</small>
                                 </div>
@@ -258,7 +258,7 @@
                                 <div class="d-flex justify-content-between align-items-center">
                                     <h6 class="mb-0">
                                         <span class="badge bg-success topic-badge me-1">新闻解读</span>
-                                        解读：中国大豆进口量创新高对豆粕价格的影响
+                                        <a href="{{ url_for('forum.topic', topic_id=5) }}" class="text-decoration-none">解读：中国大豆进口量创新高对豆粕价格的影响</a>
                                     </h6>
                                     <small class="text-muted">2023-05-03</small>
                                 </div>
@@ -279,7 +279,7 @@
                                 <div class="d-flex justify-content-between align-items-center">
                                     <h6 class="mb-0">
                                         <span class="badge bg-info topic-badge me-1">新手交流</span>
-                                        新手求助：如何开始豆粕期货交易？
+                                        <a href="{{ url_for('forum.topic', topic_id=6) }}" class="text-decoration-none">新手求助：如何开始豆粕期货交易？</a>
                                     </h6>
                                     <small class="text-muted">2023-05-02</small>
                                 </div>
@@ -300,7 +300,7 @@
                                 <div class="d-flex justify-content-between align-items-center">
                                     <h6 class="mb-0">
                                         <span class="badge bg-warning topic-badge me-1">交易策略</span>
-                                        技术分析：豆粕期货突破前高后的操作建议
+                                        <a href="{{ url_for('forum.topic', topic_id=7) }}" class="text-decoration-none">技术分析：豆粕期货突破前高后的操作建议</a>
                                     </h6>
                                     <small class="text-muted">2023-05-02</small>
                                 </div>
@@ -321,7 +321,7 @@
                                 <div class="d-flex justify-content-between align-items-center">
                                     <h6 class="mb-0">
                                         <span class="badge bg-primary topic-badge me-1">市场分析</span>
-                                        基本面分析：饲料需求增长对豆粕价格的支撑
+                                        <a href="{{ url_for('forum.topic', topic_id=8) }}" class="text-decoration-none">基本面分析：饲料需求增长对豆粕价格的支撑</a>
                                     </h6>
                                     <small class="text-muted">2023-05-01</small>
                                 </div>
@@ -497,6 +497,7 @@
                 if (titleElement) {
                     const titleText = titleElement.textContent.trim();
                     const badgeElements = titleElement.querySelectorAll('.badge');
+                    const linkElement = titleElement.querySelector('a');
                     let newTitle = '';
 
                     // 保留所有徽章
@@ -504,9 +505,17 @@
                         newTitle += badge.outerHTML + ' ';
                     });
 
-                    // 添加修改后的标题文本
-                    const titleTextWithoutBadges = titleText.replace(/\s*<span.*?<\/span>\s*/g, '').trim();
-                    newTitle += titleTextWithoutBadges + ` (${i + 1})`;
+                    // 添加修改后的标题文本，保留链接
+                    if (linkElement) {
+                        const titleTextWithoutBadges = linkElement.textContent.trim();
+                        const newLinkText = titleTextWithoutBadges + ` (${i + 1})`;
+                        const newLink = linkElement.cloneNode();
+                        newLink.textContent = newLinkText;
+                        newTitle += newLink.outerHTML;
+                    } else {
+                        const titleTextWithoutBadges = titleText.replace(/\s*<span.*?<\/span>\s*/g, '').trim();
+                        newTitle += titleTextWithoutBadges + ` (${i + 1})`;
+                    }
 
                     titleElement.innerHTML = newTitle;
                 }

@@ -34,8 +34,11 @@ def create_app(config_class=Config):
     from views.forum import bp as forum_bp
     app.register_blueprint(forum_bp, url_prefix='/forum')
 
-    # 稍后可以在这里注册其他蓝图 (auth)
-    # ...等等
+    # 注册认证蓝图
+    from views.auth import bp as auth_bp
+    app.register_blueprint(auth_bp, url_prefix='/auth')
+
+    # 其他蓝图可以在这里注册
 
     # 添加一个简单的根路由，用于测试
     @app.route('/hello')

@@ -1,0 +1,257 @@
+{% extends 'base.html' %}
+
+{% block title %}模型评估 - 豆粕期货价格预测系统{% endblock %}
+
+{% block head %}
+<style>
+    .model-card {
+        transition: transform 0.3s;
+    }
+    .model-card:hover {
+        transform: translateY(-5px);
+    }
+    .metrics-table th, .metrics-table td {
+        text-align: center;
+    }
+    .evaluation-log {
+        max-height: 300px;
+        overflow-y: auto;
+        background-color: #f8f9fa;
+        font-family: monospace;
+        padding: 10px;
+        border-radius: 5px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h2><i class="bi bi-speedometer"></i> 模型评估</h2>
+            <p class="lead">评估和比较不同深度学习模型的性能</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <button id="runEvaluationBtn" class="btn btn-primary">
+                <i class="bi bi-play-circle"></i> 运行评估
+            </button>
+        </div>
+    </div>
+
+    <!-- 模型性能卡片 -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card shadow-sm model-card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-diagram-3"></i> MLP 模型</h5>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-3">
+                        <div class="display-4 fw-bold">{{ model_metrics.mlp.accuracy|round(2) }}%</div>
+                        <div class="text-muted">准确率</div>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <div class="text-center">
+                            <div class="h5">{{ model_metrics.mlp.rmse|round(2) }}</div>
+                            <div class="text-muted small">RMSE</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="h5">{{ model_metrics.mlp.mae|round(2) if model_metrics.mlp.mae else 'N/A' }}</div>
+                            <div class="text-muted small">MAE</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="h5">{{ model_metrics.mlp.r2|round(4) if model_metrics.mlp.r2 else 'N/A' }}</div>
+                            <div class="text-muted small">R²</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card shadow-sm model-card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="bi bi-cpu"></i> LSTM 模型</h5>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-3">
+                        <div class="display-4 fw-bold">{{ model_metrics.lstm.accuracy|round(2) }}%</div>
+                        <div class="text-muted">准确率</div>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <div class="text-center">
+                            <div class="h5">{{ model_metrics.lstm.rmse|round(2) }}</div>
+                            <div class="text-muted small">RMSE</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="h5">{{ model_metrics.lstm.mae|round(2) if model_metrics.lstm.mae else 'N/A' }}</div>
+                            <div class="text-muted small">MAE</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="h5">{{ model_metrics.lstm.r2|round(4) if model_metrics.lstm.r2 else 'N/A' }}</div>
+                            <div class="text-muted small">R²</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card shadow-sm model-card">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="bi bi-grid-3x3"></i> CNN 模型</h5>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-3">
+                        <div class="display-4 fw-bold">{{ model_metrics.cnn.accuracy|round(2) }}%</div>
+                        <div class="text-muted">准确率</div>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <div class="text-center">
+                            <div class="h5">{{ model_metrics.cnn.rmse|round(2) }}</div>
+                            <div class="text-muted small">RMSE</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="h5">{{ model_metrics.cnn.mae|round(2) if model_metrics.cnn.mae else 'N/A' }}</div>
+                            <div class="text-muted small">MAE</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="h5">{{ model_metrics.cnn.r2|round(4) if model_metrics.cnn.r2 else 'N/A' }}</div>
+                            <div class="text-muted small">R²</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 模型文件列表 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-file-earmark-binary"></i> 模型文件</h5>
+                </div>
+                <div class="card-body">
+                    {% if model_files %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>文件名</th>
+                                    <th>大小</th>
+                                    <th>修改时间</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for file in model_files %}
+                                <tr>
+                                    <td>{{ file.name }}</td>
+                                    <td>{{ file.size }}</td>
+                                    <td>{{ file.modified }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i> 未找到模型文件
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 评估日志 -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-terminal"></i> 评估日志</h5>
+                </div>
+                <div class="card-body">
+                    <div id="evaluationLog" class="evaluation-log">
+                        <div class="text-muted">点击"运行评估"按钮开始模型评估...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const runEvaluationBtn = document.getElementById('runEvaluationBtn');
+        const evaluationLog = document.getElementById('evaluationLog');
+        
+        runEvaluationBtn.addEventListener('click', function() {
+            // 禁用按钮，显示加载状态
+            runEvaluationBtn.disabled = true;
+            runEvaluationBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 评估中...';
+            
+            // 清空日志区域
+            evaluationLog.innerHTML = '<div class="text-info">正在运行模型评估，请稍候...</div>';
+            
+            // 发送评估请求
+            fetch('/viz/api/run-evaluation', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                // 恢复按钮状态
+                runEvaluationBtn.disabled = false;
+                runEvaluationBtn.innerHTML = '<i class="bi bi-play-circle"></i> 运行评估';
+                
+                if (data.success) {
+                    // 显示成功消息
+                    evaluationLog.innerHTML = `
+                        <div class="text-success mb-3"><i class="bi bi-check-circle"></i> ${data.message}</div>
+                        <div class="mb-2"><strong>评估结果:</strong></div>
+                    `;
+                    
+                    // 显示评估结果
+                    for (const [model, metrics] of Object.entries(data.metrics)) {
+                        evaluationLog.innerHTML += `
+                            <div class="mb-2">
+                                <strong>${model.toUpperCase()} 模型:</strong><br>
+                                准确率: ${metrics.accuracy.toFixed(2)}%<br>
+                                RMSE: ${metrics.rmse.toFixed(2)}<br>
+                                MAE: ${metrics.mae.toFixed(2)}<br>
+                                R²: ${metrics.r2.toFixed(4)}<br>
+                                MAPE: ${metrics.mape.toFixed(2)}%
+                            </div>
+                        `;
+                    }
+                    
+                    // 刷新页面以更新指标显示
+                    setTimeout(() => {
+                        location.reload();
+                    }, 3000);
+                } else {
+                    // 显示错误消息
+                    evaluationLog.innerHTML = `
+                        <div class="text-danger"><i class="bi bi-exclamation-triangle"></i> ${data.message}</div>
+                    `;
+                }
+            })
+            .catch(error => {
+                // 恢复按钮状态
+                runEvaluationBtn.disabled = false;
+                runEvaluationBtn.innerHTML = '<i class="bi bi-play-circle"></i> 运行评估';
+                
+                // 显示错误消息
+                evaluationLog.innerHTML = `
+                    <div class="text-danger"><i class="bi bi-exclamation-triangle"></i> 评估过程中出错: ${error}</div>
+                `;
+            });
+        });
+    });
+</script>
+{% endblock %}

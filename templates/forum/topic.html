@@ -124,11 +124,11 @@
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="topic-content">
-                        {{ topic.content | replace('\n', '<br>') | safe }}
+                        {{ topic.content | replace('\n', '<br>') | replace('[', '<a href="') | replace('](', '">') | replace(')', '</a>') | safe }}
                     </div>
-                    
+
                     {% if topic.tags %}
                     <div class="mt-4">
                         <span class="text-muted me-2">标签：</span>
@@ -137,7 +137,7 @@
                         {% endfor %}
                     </div>
                     {% endif %}
-                    
+
                     <div class="d-flex justify-content-between mt-4 pt-3 border-top">
                         <div>
                             <button class="btn btn-sm btn-outline-primary me-2" id="likeTopicBtn">
@@ -158,10 +158,10 @@
                     </div>
                 </div>
             </div>
-            
+
             <!-- 回复列表 -->
             <h4 class="mb-3"><i class="bi bi-chat-dots"></i> 全部回复 ({{ replies|length }})</h4>
-            
+
             {% for reply in replies %}
             <div class="card reply-card" id="reply-{{ reply.id }}">
                 <div class="reply-header d-flex justify-content-between align-items-center">
@@ -177,7 +177,7 @@
                     </div>
                 </div>
                 <div class="reply-content">
-                    {{ reply.content | replace('\n', '<br>') | safe }}
+                    {{ reply.content | replace('\n', '<br>') | replace('[', '<a href="') | replace('](', '">') | replace(')', '</a>') | safe }}
                 </div>
                 <div class="reply-footer d-flex justify-content-between align-items-center">
                     <div>
@@ -193,7 +193,7 @@
                 </div>
             </div>
             {% endfor %}
-            
+
             <!-- 分页 -->
             {% if replies|length > 10 %}
             <nav class="mt-4">
@@ -210,7 +210,7 @@
                 </ul>
             </nav>
             {% endif %}
-            
+
             <!-- 回复表单 -->
             <div class="card mt-4">
                 <div class="card-header bg-primary text-white">
@@ -245,7 +245,7 @@
                 </div>
             </div>
         </div>
-        
+
         <div class="col-md-3">
             <!-- 作者信息 -->
             <div class="card mb-4">
@@ -278,7 +278,7 @@
                     </div>
                 </div>
             </div>
-            
+
             <!-- 相关主题 -->
             <div class="card mb-4">
                 <div class="card-header bg-primary text-white">
@@ -290,7 +290,7 @@
                             <li class="list-group-item px-0">
                                 <a href="{{ url_for('forum.topic', topic_id=related.id) }}" class="text-decoration-none">{{ related.title }}</a>
                                 <div class="small text-muted mt-1">
-                                    <i class="bi bi-person"></i> {{ related.username }} · 
+                                    <i class="bi bi-person"></i> {{ related.username }} ·
                                     <i class="bi bi-chat-dots"></i> {{ related.replies }} 回复
                                 </div>
                             </li>
@@ -298,7 +298,7 @@
                     </ul>
                 </div>
             </div>
-            
+
             <!-- 热门标签 -->
             <div class="card">
                 <div class="card-header bg-primary text-white">
@@ -329,15 +329,15 @@
         const replyContent = document.querySelector(`#reply-${replyId} .reply-content`).innerText;
         const replyUsername = document.querySelector(`#reply-${replyId} .fw-bold`).innerText;
         const quoteText = `> 引用 ${replyUsername} 的发言：\n> ${replyContent.trim()}\n\n`;
-        
+
         const textarea = document.getElementById('replyContent');
         textarea.value = quoteText + textarea.value;
         textarea.focus();
-        
+
         // 滚动到回复框
         document.getElementById('replyForm').scrollIntoView({ behavior: 'smooth' });
     }
-    
+
     // 文本格式化
     function formatText(type) {
         const textarea = document.getElementById('replyContent');
@@ -345,7 +345,7 @@
         const end = textarea.selectionEnd;
         const selectedText = textarea.value.substring(start, end);
         let replacement = '';
-        
+
         switch(type) {
             case 'bold':
                 replacement = `**${selectedText}**`;
@@ -379,71 +379,106 @@
                 replacement = selectedText.split('\n').map(line => `> ${line}`).join('\n');
                 break;
         }
-        
+
         textarea.value = textarea.value.substring(0, start) + replacement + textarea.value.substring(end);
         textarea.focus();
         textarea.selectionStart = start;
         textarea.selectionEnd = start + replacement.length;
     }
-    
+
     // 表单提交
     document.getElementById('replyForm').addEventListener('submit', function(e) {
         e.preventDefault();
-        
+
         const content = document.getElementById('replyContent').value.trim();
         if (!content) {
             alert('回复内容不能为空');
             return;
         }
-        
-        // 在实际应用中，这里应该发送AJAX请求
-        alert('回复已提交，等待审核');
-        document.getElementById('replyContent').value = '';
+
+        // 获取表单数据
+        const formData = new FormData();
+        formData.append('content', content);
+
+        // 显示加载状态
+        const submitBtn = this.querySelector('button[type="submit"]');
+        const originalBtnText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> 提交中...';
+        submitBtn.disabled = true;
+
+        // 发送AJAX请求
+        fetch(this.action, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // 回复成功
+                alert('回复发表成功');
+                document.getElementById('replyContent').value = '';
+
+                // 刷新页面显示新回复
+                window.location.reload();
+            } else {
+                // 回复失败
+                alert('回复失败: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('回复提交出错:', error);
+            alert('回复提交出错，请稍后再试');
+        })
+        .finally(() => {
+            // 恢复按钮状态
+            submitBtn.innerHTML = originalBtnText;
+            submitBtn.disabled = false;
+        });
     });
-    
+
     // 点赞主题
     document.getElementById('likeTopicBtn').addEventListener('click', function() {
         alert('点赞成功');
         this.innerHTML = '<i class="bi bi-hand-thumbs-up-fill"></i> 已点赞';
         this.disabled = true;
     });
-    
+
     // 收藏主题
     document.getElementById('favoriteTopicBtn').addEventListener('click', function() {
         alert('收藏成功');
         this.innerHTML = '<i class="bi bi-bookmark-fill"></i> 已收藏';
         this.disabled = true;
     });
-    
+
     // 分享主题
     document.getElementById('shareTopicBtn').addEventListener('click', function() {
         // 创建一个临时输入框
         const tempInput = document.createElement('input');
         tempInput.value = window.location.href;
         document.body.appendChild(tempInput);
-        
+
         // 选择并复制
         tempInput.select();
         document.execCommand('copy');
-        
+
         // 移除临时输入框
         document.body.removeChild(tempInput);
-        
+
         alert('链接已复制到剪贴板');
     });
-    
+
     // 回复按钮滚动到回复框
     document.getElementById('replyTopicBtn').addEventListener('click', function() {
         document.getElementById('replyForm').scrollIntoView({ behavior: 'smooth' });
         document.getElementById('replyContent').focus();
     });
-    
+
     // 点赞回复
     document.querySelectorAll('[id^="likeReplyBtn-"]').forEach(button => {
         button.addEventListener('click', function() {
             const replyId = this.id.split('-')[1];
             alert(`回复 #${replyId} 点赞成功`);
-            
+
             // 更新点赞数
             const likeCount = parseInt(this.innerText.match(/\d+/)[0]) + 1;
             this.innerHTML = `<i class="bi bi-hand-thumbs-up-fill"></i> 点赞 (${likeCount})`;

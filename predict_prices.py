@@ -83,30 +83,16 @@ def select_features(df):
         if feature in df.columns:
             tech_features.append(feature)
 
-    # --- 移除了 derived_features 的选择 ---
-    # derived_features = [
-    #     '价格变化', '价格变化率', '日内波动率',
-    #     'MA5_diff', 'MA10_diff', 'MA20_diff', 'MA30_diff',
-    #     'MA5_slope', 'MA10_slope', 'MA20_slope', 'MA30_slope'
-    #     # 添加其他训练时使用的衍生或时间特征
-    # ]
-
-    # all_features = basic_features + tech_features + [f for f in derived_features if f in df.columns]
-    all_features = basic_features + tech_features # <--- 只合并基础和技术特征
+    # 合并基础和技术特征
+    all_features = basic_features + tech_features
 
     # 过滤掉不存在或非数值的列
     final_features = []
     for feature in all_features:
         if feature in df.columns and pd.api.types.is_numeric_dtype(df[feature]):
             final_features.append(feature)
-        # else:
-            # print(f"警告：特征 '{feature}' 在数据中不存在或非数值，已忽略。")
 
-    # 确保目标列是第一个特征（如果训练时是这样处理的，虽然通常目标列不作为输入特征）
-    # 如果目标列作为特征之一输入模型：
-    # if TARGET_COL in final_features:
-    #     final_features.remove(TARGET_COL)
-    #     final_features.insert(0, TARGET_COL)
+    # 确保特征列表有效
 
     print(f"预测时使用的特征: {final_features}")
     return final_features

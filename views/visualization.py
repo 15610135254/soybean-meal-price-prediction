@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, current_app, jsonify, request, flash, redirect, url_for
+from flask import Blueprint, render_template, current_app, jsonify, request, flash, redirect, url_for, session
 import pandas as pd
 import json
 import os
@@ -6,6 +6,7 @@ import logging
 import sys
 import numpy as np
 from werkzeug.utils import secure_filename
+from views.auth import login_required, admin_required
 
 # 自定义JSON编码器，处理NaN值
 class NpEncoder(json.JSONEncoder):
@@ -114,15 +115,40 @@ def view_data():
                 'volumes': df['成交量'].tolist() if '成交量' in df.columns else []
             }
 
-            # 添加技术指标数据（如果存在）
-            if 'MA5' in df.columns:
-                chart_data['ma5'] = df['MA5'].tolist()
-            if 'MA10' in df.columns:
-                chart_data['ma10'] = df['MA10'].tolist()
-            if 'MA20' in df.columns:
-                chart_data['ma20'] = df['MA20'].tolist()
+            # 添加所有技术指标数据（如果存在）
+            # 移动平均线
+            for column in ['MA5', 'MA10', 'MA20', 'MA30', 'MA60', 'EMA12', 'EMA26']:
+                if column in df.columns:
+                    chart_data[column.lower()] = df[column].tolist()
+
+            # RSI指标
             if 'RSI' in df.columns:
                 chart_data['rsi'] = df['RSI'].tolist()
+
+            # MACD指标
+            for column in ['MACD', 'MACD_Signal', 'MACD_Hist']:
+                if column in df.columns:
+                    chart_data[column] = df[column].tolist()
+
+            # KDJ指标
+            for column in ['RSV', 'K', 'D', 'J']:
+                if column in df.columns:
+                    chart_data[column] = df[column].tolist()
+
+            # 布林带指标
+            for column in ['中轨线', '标准差', '上轨线', '下轨线']:
+                if column in df.columns:
+                    chart_data[column] = df[column].tolist()
+
+            # 成交量指标
+            for column in ['成交量变化率', '相对成交量', '成交量MA5', '成交量MA10']:
+                if column in df.columns:
+                    chart_data[column] = df[column].tolist()
+
+            # 其他技术指标和特征
+            for column in ['涨跌幅', '日内波幅', '价格变动', '突破MA5', '突破MA10', '突破MA20', '金叉', '死叉']:
+                if column in df.columns:
+                    chart_data[column] = df[column].tolist()
 
             # 将数据转换为 JSON 格式传递给模板
             chart_data_json = json.dumps(chart_data, ensure_ascii=False)
@@ -277,8 +303,9 @@ def predict():
         return jsonify({"error": str(e)}), 500
 
 @bp.route('/api/edit', methods=['POST'])
+@admin_required
 def edit_data():
-    """API端点：编辑数据"""
+    """API端点：编辑数据（仅管理员）"""
     try:
         # 获取请求数据
         data = request.json
@@ -352,15 +379,40 @@ def edit_data():
             'volumes': df['成交量'].tolist() if '成交量' in df.columns else []
         }
 
-        # 添加技术指标数据（如果存在）
-        if 'MA5' in df.columns:
-            chart_data['ma5'] = df['MA5'].tolist()
-        if 'MA10' in df.columns:
-            chart_data['ma10'] = df['MA10'].tolist()
-        if 'MA20' in df.columns:
-            chart_data['ma20'] = df['MA20'].tolist()
+        # 添加所有技术指标数据（如果存在）
+        # 移动平均线
+        for column in ['MA5', 'MA10', 'MA20', 'MA30', 'MA60', 'EMA12', 'EMA26']:
+            if column in df.columns:
+                chart_data[column.lower()] = df[column].tolist()
+
+        # RSI指标
         if 'RSI' in df.columns:
             chart_data['rsi'] = df['RSI'].tolist()
+
+        # MACD指标
+        for column in ['MACD', 'MACD_Signal', 'MACD_Hist']:
+            if column in df.columns:
+                chart_data[column] = df[column].tolist()
+
+        # KDJ指标
+        for column in ['RSV', 'K', 'D', 'J']:
+            if column in df.columns:
+                chart_data[column] = df[column].tolist()
+
+        # 布林带指标
+        for column in ['中轨线', '标准差', '上轨线', '下轨线']:
+            if column in df.columns:
+                chart_data[column] = df[column].tolist()
+
+        # 成交量指标
+        for column in ['成交量变化率', '相对成交量', '成交量MA5', '成交量MA10']:
+            if column in df.columns:
+                chart_data[column] = df[column].tolist()
+
+        # 其他技术指标和特征
+        for column in ['涨跌幅', '日内波幅', '价格变动', '突破MA5', '突破MA10', '突破MA20', '金叉', '死叉']:
+            if column in df.columns:
+                chart_data[column] = df[column].tolist()
 
         # 返回成功响应
         response_data = {
@@ -382,8 +434,9 @@ def edit_data():
         return jsonify({"success": False, "error": str(e)}), 500
 
 @bp.route('/api/delete', methods=['POST'])
+@admin_required
 def delete_data():
-    """API端点：删除数据"""
+    """API端点：删除数据（仅管理员）"""
     try:
         # 获取请求数据
         data = request.json
@@ -452,15 +505,40 @@ def delete_data():
             'volumes': df['成交量'].tolist() if '成交量' in df.columns else []
         }
 
-        # 添加技术指标数据（如果存在）
-        if 'MA5' in df.columns:
-            chart_data['ma5'] = df['MA5'].tolist()
-        if 'MA10' in df.columns:
-            chart_data['ma10'] = df['MA10'].tolist()
-        if 'MA20' in df.columns:
-            chart_data['ma20'] = df['MA20'].tolist()
+        # 添加所有技术指标数据（如果存在）
+        # 移动平均线
+        for column in ['MA5', 'MA10', 'MA20', 'MA30', 'MA60', 'EMA12', 'EMA26']:
+            if column in df.columns:
+                chart_data[column.lower()] = df[column].tolist()
+
+        # RSI指标
         if 'RSI' in df.columns:
             chart_data['rsi'] = df['RSI'].tolist()
+
+        # MACD指标
+        for column in ['MACD', 'MACD_Signal', 'MACD_Hist']:
+            if column in df.columns:
+                chart_data[column] = df[column].tolist()
+
+        # KDJ指标
+        for column in ['RSV', 'K', 'D', 'J']:
+            if column in df.columns:
+                chart_data[column] = df[column].tolist()
+
+        # 布林带指标
+        for column in ['中轨线', '标准差', '上轨线', '下轨线']:
+            if column in df.columns:
+                chart_data[column] = df[column].tolist()
+
+        # 成交量指标
+        for column in ['成交量变化率', '相对成交量', '成交量MA5', '成交量MA10']:
+            if column in df.columns:
+                chart_data[column] = df[column].tolist()
+
+        # 其他技术指标和特征
+        for column in ['涨跌幅', '日内波幅', '价格变动', '突破MA5', '突破MA10', '突破MA20', '金叉', '死叉']:
+            if column in df.columns:
+                chart_data[column] = df[column].tolist()
 
         # 返回成功响应
         response_data = {
@@ -482,8 +560,9 @@ def delete_data():
         return jsonify({"success": False, "error": str(e)}), 500
 
 @bp.route('/api/upload', methods=['POST'])
+@admin_required
 def upload_file():
-    """API端点：上传数据文件"""
+    """API端点：上传数据文件（仅管理员）"""
     # 检查是否有文件
     if 'file' not in request.files:
         logger.error("没有文件部分")
@@ -543,15 +622,40 @@ def upload_file():
                 'volumes': df['成交量'].tolist() if '成交量' in df.columns else []
             }
 
-            # 添加技术指标数据（如果存在）
-            if 'MA5' in df.columns:
-                chart_data['ma5'] = df['MA5'].tolist()
-            if 'MA10' in df.columns:
-                chart_data['ma10'] = df['MA10'].tolist()
-            if 'MA20' in df.columns:
-                chart_data['ma20'] = df['MA20'].tolist()
+            # 添加所有技术指标数据（如果存在）
+            # 移动平均线
+            for column in ['MA5', 'MA10', 'MA20', 'MA30', 'MA60', 'EMA12', 'EMA26']:
+                if column in df.columns:
+                    chart_data[column.lower()] = df[column].tolist()
+
+            # RSI指标
             if 'RSI' in df.columns:
                 chart_data['rsi'] = df['RSI'].tolist()
+
+            # MACD指标
+            for column in ['MACD', 'MACD_Signal', 'MACD_Hist']:
+                if column in df.columns:
+                    chart_data[column] = df[column].tolist()
+
+            # KDJ指标
+            for column in ['RSV', 'K', 'D', 'J']:
+                if column in df.columns:
+                    chart_data[column] = df[column].tolist()
+
+            # 布林带指标
+            for column in ['中轨线', '标准差', '上轨线', '下轨线']:
+                if column in df.columns:
+                    chart_data[column] = df[column].tolist()
+
+            # 成交量指标
+            for column in ['成交量变化率', '相对成交量', '成交量MA5', '成交量MA10']:
+                if column in df.columns:
+                    chart_data[column] = df[column].tolist()
+
+            # 其他技术指标和特征
+            for column in ['涨跌幅', '日内波幅', '价格变动', '突破MA5', '突破MA10', '突破MA20', '金叉', '死叉']:
+                if column in df.columns:
+                    chart_data[column] = df[column].tolist()
 
             # 处理NaN值
             response_data = {
@@ -593,3 +697,80 @@ def upload_file():
             mimetype='application/json',
             status=500
         )
+
+@bp.route('/model-evaluation')
+@admin_required
+def model_evaluation():
+    """模型评估页面（仅管理员）"""
+    # 加载模型指标
+    model_metrics = load_model_metrics()
+
+    # 获取模型文件信息
+    model_files = []
+    try:
+        # 获取项目根目录
+        base_dir = os.path.dirname(current_app.root_path)
+        model_dir = os.path.join(base_dir, 'saved_models')
+
+        if os.path.exists(model_dir):
+            for file in os.listdir(model_dir):
+                if file.endswith('.h5'):
+                    file_path = os.path.join(model_dir, file)
+                    file_size = os.path.getsize(file_path) / (1024 * 1024)  # 转换为MB
+                    file_time = os.path.getmtime(file_path)
+                    model_files.append({
+                        'name': file,
+                        'size': f"{file_size:.2f} MB",
+                        'modified': pd.to_datetime(file_time, unit='s').strftime('%Y-%m-%d %H:%M:%S')
+                    })
+    except Exception as e:
+        logger.error(f"获取模型文件信息时出错: {str(e)}")
+
+    return render_template(
+        'visualization/model_evaluation.html',
+        model_metrics=model_metrics,
+        model_files=model_files
+    )
+
+@bp.route('/api/run-evaluation', methods=['POST'])
+@admin_required
+def run_evaluation():
+    """API端点：运行模型评估（仅管理员）"""
+    try:
+        # 导入评估模块
+        import sys
+        import os
+
+        # 获取项目根目录
+        base_dir = os.path.dirname(current_app.root_path)
+
+        # 将项目根目录添加到系统路径
+        if base_dir not in sys.path:
+            sys.path.append(base_dir)
+
+        # 导入评估函数
+        from model_metrics import evaluate_models
+
+        # 运行评估
+        metrics = evaluate_models()
+
+        if metrics:
+            return jsonify({
+                'success': True,
+                'message': '模型评估完成',
+                'metrics': metrics
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': '模型评估失败，请检查日志'
+            }), 500
+
+    except Exception as e:
+        logger.error(f"运行模型评估时出错: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'message': f'评估过程中出错: {str(e)}'
+        }), 500
