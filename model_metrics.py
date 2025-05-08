@@ -8,15 +8,15 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import joblib
 
 # 配置
-MODEL_DIR = "saved_models"
+MODEL_DIR = "best_models"
 SCALER_DIR = "scalers"
 METRICS_FILE = "model_metrics.json"
 
 # 模型文件
 MODEL_FILES = {
-    "MLP": "mlp_20250502_225158.h5",
-    "LSTM": "lstm_20250502_225234.h5",
-    "CNN": "cnn_20250502_225554.h5"
+    "MLP": "mlp_20250508_223913.h5",
+    "LSTM": "lstm_20250508_224629.h5",
+    "CNN": "cnn_20250508_224004.h5"
 }
 
 def load_test_data():
@@ -24,7 +24,7 @@ def load_test_data():
     try:
         # 尝试加载测试数据
         # 注意：在实际应用中，您需要确保有一个专门的测试数据集
-        df = pd.read_csv("data/data.csv")
+        df = pd.read_csv("/Users/a/project/models/model_data/date1.csv")
         df['日期'] = pd.to_datetime(df['日期'])
         df = df.sort_values('日期')
         

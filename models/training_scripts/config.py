@@ -4,7 +4,7 @@
 
 # 通用训练参数
 TRAINING_CONFIG = {
-    'epochs': 200,  # 增加训练轮数
+    'epochs': 500,  # 增加训练轮数
     'batch_size': 64,
     'validation_split': 0.1,
     'test_size': 0.1,
