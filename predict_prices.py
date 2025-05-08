@@ -3,406 +3,398 @@ import numpy as np
 import os
 import joblib
 import glob
+import logging
 from tensorflow.keras.models import load_model
 from sklearn.preprocessing import MinMaxScaler
 
+# 配置日志
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
 # --- 配置 ---
 DEFAULT_DATA_FILE = "model_data/date1.csv"  # 默认数据文件路径
-LOOK_BACK = 20  # 设置默认值为20，这是时间序列预测中常用的窗口大小
-MODEL_DIR = "best_models"  # 使用best_models目录中的模型
-SCALER_DIR = "scalers"
-TARGET_COL = 'close' # 确认目标列
-
-# 列名映射（新数据集到旧数据集的映射）
-COLUMN_MAPPING = {
-    'date': '日期',
-    'open': '开盘价',
-    'high': '最高价',
-    'low': '最低价',
-    'close': '收盘价',
-    'volume': '成交量',
-    'hold': '持仓量',
-    'MA_5': 'MA5',
-    'HV_20': '波动率',
-    'ATR_14': 'ATR',
-    'RSI_14': 'RSI',
-    'OBV': 'OBV',
-    'MACD': 'MACD'
-}
+LOOK_BACK = 30  # 时间序列预测中使用的窗口大小
+MODEL_DIR = "best_models"  # 模型目录
+SCALER_DIR = "scalers"  # 标准化器目录
+TARGET_COL = 'close'  # 目标列
 
 def get_latest_data_file():
-    """获取数据文件路径，与趋势图保持一致"""
-    # 首先检查默认数据文件是否存在
+    """获取数据文件路径，优先使用默认数据文件"""
     if os.path.exists(DEFAULT_DATA_FILE):
-        print(f"使用默认数据文件: {DEFAULT_DATA_FILE}")
+        logger.info(f"使用默认数据文件: {DEFAULT_DATA_FILE}")
         return DEFAULT_DATA_FILE
 
     # 如果默认文件不存在，查找model_data和data目录下的所有CSV文件
     data_files = glob.glob("model_data/*.csv") + glob.glob("data/*.csv")
 
     if not data_files:
-        # 如果没有找到任何CSV文件，返回默认路径（即使它不存在）
-        print(f"未找到任何CSV文件，使用默认文件路径: {DEFAULT_DATA_FILE}")
+        logger.warning(f"未找到任何CSV文件，使用默认文件路径: {DEFAULT_DATA_FILE}")
         return DEFAULT_DATA_FILE
 
     # 按文件修改时间排序，返回最新的文件
     latest_file = max(data_files, key=os.path.getmtime)
-    print(f"默认数据文件不存在，使用最新的数据文件: {latest_file}")
+    logger.info(f"默认数据文件不存在，使用最新的数据文件: {latest_file}")
     return latest_file
 
 # 指定要使用的模型文件
 MODEL_FILES = {
-    "MLP": "mlp_20250508_223913.h5",
-    "LSTM": "lstm_20250508_224629.h5",
-    "CNN": "cnn_20250508_224004.h5"
+    "MLP": "mlp_20250509_011024.h5",
+    "LSTM": "lstm_20250509_011051.h5",
+    "CNN": "cnn_20250509_011353.h5"
 }
 
-# --- 辅助函数 (需要与 deep_learning_models.py 中的逻辑保持一致) ---
+def preprocess_data(df):
+    """预处理数据，确保所有必要的列都存在"""
+    try:
+        # 确保日期列是datetime类型
+        if 'date' in df.columns:
+            df['date'] = pd.to_datetime(df['date'])
 
-def add_technical_indicators(df):
-    """添加技术指标 (简化版，确保与训练时使用的特征一致)"""
-    # 确保使用正确的列名
-    close_col = '收盘价' if '收盘价' in df.columns else 'close'
-    open_col = '开盘价' if '开盘价' in df.columns else 'open'
-    high_col = '最高价' if '最高价' in df.columns else 'high'
-    low_col = '最低价' if '最低价' in df.columns else 'low'
+        # 确保数据按日期排序
+        if 'date' in df.columns:
+            df = df.sort_values('date')
 
-    # 基本价格特征
-    df['价格变化'] = df[close_col].diff()
-    df['价格变化率'] = df[close_col].pct_change()
-    df['日内波动率'] = (df[high_col] - df[low_col]) / df[open_col]
+        # 检查并确保所有必要的列都存在
+        required_cols = ['open', 'high', 'low', 'close', 'volume']
+        missing_cols = [col for col in required_cols if col not in df.columns]
 
-    # 移动平均线特征 (仅添加训练时实际使用的)
-    # 检查是否有MA5或MA_5列
-    ma_columns = {}
-    for ma in [5, 10, 20, 30]:
-        if f'MA{ma}' in df.columns:
-            ma_columns[ma] = f'MA{ma}'
-        elif f'MA_{ma}' in df.columns:
-            ma_columns[ma] = f'MA_{ma}'
+        if missing_cols:
+            logger.warning(f"缺少必要的列: {missing_cols}")
 
-    for ma, col_name in ma_columns.items():
-        df[f'MA{ma}_diff'] = df[close_col] - df[col_name]
-        df[f'MA{ma}_slope'] = df[col_name].diff()
-        # df[f'MA{ma}_std'] = df[close_col].rolling(window=ma).std() # 训练时可能未使用
+        # 替换无穷值和NaN
+        df = df.replace([np.inf, -np.inf], np.nan)
 
-    # 其他指标 (确保这些列在 data.csv 或基础计算中存在)
-    # ... (根据 deep_learning_models.py 中 select_features 实际选择的添加)
-    # 例如:
-    # if 'MACD' in df.columns:
-    #     df['MACD_diff'] = df['MACD'].diff()
-    # if 'RSI' in df.columns:
-    #     df['RSI_diff'] = df['RSI'].diff()
+        # 对数值列进行简单的前向填充
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        df[numeric_cols] = df[numeric_cols].fillna(method='ffill')
 
-    # 时间特征 (如果训练时使用了)
-    # df['星期'] = df['日期'].dt.dayofweek
-    # df['月份'] = df['日期'].dt.month
+        # 如果仍有NaN，使用列均值填充
+        df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].mean())
 
-    # 替换无穷值
-    df = df.replace([np.inf, -np.inf], np.nan)
-    return df
+        # 如果仍有NaN，填充为0
+        df = df.fillna(0)
+
+        return df
+
+    except Exception as e:
+        logger.error(f"预处理数据时出错: {e}")
+        import traceback
+        traceback.print_exc()
+        return df
+
+# def add_technical_indicators(df):
+#     """添加技术指标"""
+#     try:
+#         # 创建一个副本以避免修改原始数据
+#         df_copy = df.copy()
+#
+#         # 确保使用正确的列名
+#         if 'close' not in df_copy.columns:
+#             logger.error("缺少必要的'close'列，无法添加技术指标")
+#             return df_copy
+#
+#         # 我们不需要添加额外的技术指标，因为数据集中已经包含了所有需要的指标
+#         # 如MA_5, HV_20, ATR_14, RSI_14, OBV, MACD等
+#
+#         # 如果需要，可以在这里添加额外的技术指标
+#
+#         logger.info("为预测数据添加技术指标完成。")
+#         logger.info(f"--- DEBUG: Columns in df at the END of add_technical_indicators: {df_copy.columns.tolist()} ---")
+#         return df_copy
+#
+#     except Exception as e:
+#         logger.error(f"添加技术指标时出错: {e}")
+#         import traceback
+#         traceback.print_exc()
+#         return df
 
 def select_features(df):
-    """选择模型使用的特征 (必须与训练时完全一致)"""
-    # 注意：这里的列表需要和 deep_learning_models.py 中 select_features 函数最终返回的列表完全一致
-    # 根据错误信息，训练时使用了17个特征。尝试只使用基础特征和技术指标特征。
+    """选择模型使用的特征。
+    此版本旨在从DataFrame中选择一组预定义的16个特征，
+    并确保它们存在且为数值类型。
+    """
+    logger.info("开始为预测选择特征...")
 
-    # 检查数据集的列名格式
-    if 'close' in df.columns and '收盘价' not in df.columns:
-        # 新数据集格式
-        basic_features = ['close', 'open', 'high', 'low', 'volume']
-    else:
-        # 旧数据集格式
-        basic_features = ['收盘价', '开盘价', '最高价', '最低价', '成交量']
-
-    tech_features = []
-    # 检查可能的技术指标列名
-    potential_features = [
-        # 旧格式
-        '涨跌幅', 'MA5', 'MA10', 'MA20', 'MA30', 'EMA12', 'EMA26', 'RSI', 'MACD', 'K', 'D', 'J',
-        # 新格式
-        'MA_5', 'HV_20', 'ATR_14', 'RSI_14', 'OBV', 'MACD'
+    # 预定义的16个特征列表 (与训练脚本从date1.csv选择的特征和顺序完全一致)
+    # 这些特征应该直接存在于输入的 df 中
+    defined_16_features = [
+        'open', 'high', 'low', 'volume', 'hold', 'MA_5', 'HV_20', 'ATR_14',
+        'RSI_14', 'OBV', 'MACD', 'a_close', 'c_close', 'LPR1Y',
+        '大豆产量(万吨)', 'GDP'
     ]
 
-    for feature in potential_features:
-        if feature in df.columns:
-            tech_features.append(feature)
+    # 检查预定义列表是否确实是16个 (可选的健全性检查)
+    # if len(defined_16_features) != 16:
+    #     logger.error(f"内部错误: 预定义的特征列表长度不是16，而是 {len(defined_16_features)}。请检查代码。")
+    #     return []
 
-    # 合并基础和技术特征
-    all_features = basic_features + tech_features
-
-    # 过滤掉不存在或非数值的列
     final_features = []
-    for feature in all_features:
-        if feature in df.columns and pd.api.types.is_numeric_dtype(df[feature]):
-            final_features.append(feature)
+    missing_features = []
+    non_numeric_features = []
 
-    # 确保特征列表有效
+    for feature_name in defined_16_features:
+        if feature_name in df.columns:
+            if pd.api.types.is_numeric_dtype(df[feature_name]):
+                final_features.append(feature_name)
+            else:
+                # 尝试转换为数值
+                logger.info(f"特征 '{feature_name}' 非数值，尝试转换...")
+                try:
+                    df[feature_name] = pd.to_numeric(df[feature_name], errors='raise') # errors='raise' 更严格
+                    final_features.append(feature_name)
+                    logger.info(f"特征 '{feature_name}' 成功转换为数值。")
+                except (ValueError, TypeError):
+                    non_numeric_features.append(feature_name)
+                    logger.warning(f"特征 '{feature_name}' 无法转换为数值，将被排除。")
+        else:
+            missing_features.append(feature_name)
 
-    print(f"预测时使用的特征: {final_features}")
-    return final_features
+    if missing_features:
+        logger.error(f"错误: 预定义的特征在DataFrame中缺失: {missing_features}")
+    if non_numeric_features:
+        logger.error(f"错误: 预定义的特征非数值且无法转换: {non_numeric_features}")
 
-def handle_missing_values(df, features):
-    """处理缺失值 (与训练时一致)"""
-    df_subset = df[features].copy()
-    df_subset = df_subset.fillna(method='ffill') # 先前向填充
-    df_subset = df_subset.fillna(df_subset.mean()) # 再均值填充
-    # 确保没有NaN剩下，否则模型会出错
-    if df_subset.isnull().values.any():
-        print("警告：处理后仍有缺失值，可能导致预测错误。")
-        # 可以选择填充0或其他策略
-        df_subset = df_subset.fillna(0)
-    df[features] = df_subset
-    return df
+    # 只有当所有16个预定义特征都成功找到并且是数值类型时，才认为是成功的
+    if len(final_features) == len(defined_16_features):
+        logger.info(f"成功选择所有 {len(final_features)} 个预定义特征: {final_features}")
+        # 返回的final_features将保持defined_16_features中的顺序
+        return final_features
+    else:
+        logger.error(f"未能选择全部16个预定义特征。实际有效特征数量: {len(final_features)}。请检查数据源和上述错误。")
+        return [] # 返回空列表表示失败，以便上游处理
+
+    # except Exception as e:
+    #     logger.error(f"选择特征时发生意外错误: {e}")
+    #     import traceback
+    #     traceback.print_exc()
+    #     return []
+
+def prepare_sequence_data(df, features, look_back=LOOK_BACK):
+    """准备时间序列数据"""
+    try:
+        if len(df) < look_back:
+            logger.error(f"数据不足 {look_back} 条，无法准备序列数据")
+            return None
+
+        # 获取最后look_back条数据
+        latest_data = df[features].iloc[-look_back:].values
+
+        logger.info(f"准备的序列数据形状: {latest_data.shape}")
+        return latest_data
+
+    except Exception as e:
+        logger.error(f"准备序列数据时出错: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
+
+def normalize_data(data, scaler_path):
+    """标准化数据"""
+    try:
+        if not os.path.exists(scaler_path):
+            logger.error(f"标准化器文件不存在: {scaler_path}")
+            return None
+
+        # 加载标准化器
+        scaler = joblib.load(scaler_path)
+
+        # 记录特征数量信息
+        logger.info(f"数据特征数量: {data.shape[1]}")
+        logger.info(f"标准化器期望特征数量: {scaler.n_features_in_}")
+
+        # 检查特征数量是否匹配
+        if data.shape[1] != scaler.n_features_in_:
+            logger.warning(f"特征数量不匹配: 数据有 {data.shape[1]} 个特征，但标准化器期望 {scaler.n_features_in_} 个特征")
+
+            # 尝试使用update_scalers.py脚本更新标准化器
+            logger.info("尝试运行update_scalers.py脚本更新标准化器...")
+            try:
+                import subprocess
+                result = subprocess.run(['python3', 'update_scalers.py'], capture_output=True, text=True)
+                if result.returncode == 0:
+                    logger.info("成功运行update_scalers.py脚本")
+                    logger.info(result.stdout)
+
+                    # 重新加载更新后的标准化器
+                    scaler = joblib.load(scaler_path)
+                    logger.info(f"重新加载标准化器，期望特征数量: {scaler.n_features_in_}")
+
+                    # 再次检查特征数量是否匹配
+                    if data.shape[1] != scaler.n_features_in_:
+                        logger.warning(f"更新后特征数量仍不匹配，创建临时标准化器")
+                        # 创建临时标准化器
+                        temp_scaler = MinMaxScaler()
+                        temp_scaler.fit(data)
+                        normalized_data = temp_scaler.transform(data)
+                        return normalized_data
+                    else:
+                        # 特征数量匹配，使用更新后的标准化器
+                        normalized_data = scaler.transform(data)
+                        return normalized_data
+                else:
+                    logger.error(f"运行update_scalers.py脚本失败: {result.stderr}")
+                    # 创建临时标准化器
+                    temp_scaler = MinMaxScaler()
+                    temp_scaler.fit(data)
+                    normalized_data = temp_scaler.transform(data)
+                    return normalized_data
+            except Exception as e:
+                logger.error(f"尝试更新标准化器时出错: {e}")
+                # 创建临时标准化器
+                temp_scaler = MinMaxScaler()
+                temp_scaler.fit(data)
+                normalized_data = temp_scaler.transform(data)
+                return normalized_data
+
+        # 特征数量匹配，直接使用标准化器
+        normalized_data = scaler.transform(data)
+        return normalized_data
+
+    except Exception as e:
+        logger.error(f"标准化数据时出错: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
 
 # --- 主预测逻辑 ---
 def main():
-    # 1. 加载数据
-    data_file = get_latest_data_file()
-    print(f"正在加载数据: {data_file}")
-    try:
-        df = pd.read_csv(data_file)
+    """主函数，用于命令行测试"""
+    # 测试所有模型
+    for model_type in MODEL_FILES.keys():
+        print(f"\n--- 使用 {model_type} 模型预测 ---")
+        result = predict_with_model(model_type, days=1)
 
-        # 检查数据集的列名，并进行必要的映射
-        if 'date' in df.columns and '日期' not in df.columns:
-            print("检测到新数据集格式，进行列名映射...")
-            # 将日期列转换为datetime
-            df['date'] = pd.to_datetime(df['date'])
-            # 重命名列以兼容旧代码
-            df.rename(columns={'date': '日期',
-                              'open': '开盘价',
-                              'high': '最高价',
-                              'low': '最低价',
-                              'close': '收盘价',
-                              'volume': '成交量'}, inplace=True)
+        if 'error' in result:
+            print(f"预测失败: {result['error']}")
         else:
-            # 原始数据集格式
-            df['日期'] = pd.to_datetime(df['日期'])
+            for date, price in zip(result['dates'], result['prices']):
+                print(f"{date}: {price:.2f}")
 
-        df = df.sort_values('日期')
-    except FileNotFoundError:
-        print(f"错误：数据文件 {data_file} 未找到。")
-        return
+def predict_with_model(model_type, days=1):
+    """使用指定的模型进行预测"""
+    logger.info(f"使用 {model_type.upper()} 模型预测未来 {days} 天的价格")
 
-    # 2. 加载标准化器
     try:
-        feature_scaler = joblib.load(os.path.join(SCALER_DIR, 'feature_scaler.pkl'))
-        target_scaler = joblib.load(os.path.join(SCALER_DIR, 'target_scaler.pkl'))
-        print("标准化器加载成功。")
-    except FileNotFoundError:
-        print(f"错误：标准化器文件未在 {SCALER_DIR} 找到。请先运行训练脚本生成标准化器。")
-        return
+        # 1. 加载数据
+        data_file = get_latest_data_file()
+        if not os.path.exists(data_file):
+            return {'error': f'数据文件 {data_file} 不存在'}
 
-    # 3. 准备最新数据进行预测
-    print("正在准备最新数据...")
-    # a. 添加技术指标
-    df_processed = add_technical_indicators(df.copy())
+        df = pd.read_csv(data_file)
+        logger.info(f"成功加载数据文件: {data_file}, 共 {len(df)} 条记录")
 
-    # b. 选择特征 (确保与训练时一致)
-    features = select_features(df_processed)
-    if not features:
-        print("错误：未能选择任何有效特征进行预测。")
-        return
+        # 2. 预处理数据 (例如日期转换，基础NaN处理)
+        df = preprocess_data(df)
 
-    # c. 处理缺失值 (只处理选定的特征)
-    df_processed = handle_missing_values(df_processed, features)
+        # 3. 添加技术指标 (特征工程，与训练时一致)
+        # df = add_technical_indicators(df)
+        logger.info(f"--- DEBUG: Columns in df AFTER add_technical_indicators: {df.columns.tolist()} ---")
+        logger.info(f"--- DEBUG: Shape of df AFTER add_technical_indicators: {df.shape} ---")
 
-    # d. 提取最后 look_back 条数据
-    if len(df_processed) < LOOK_BACK:
-        print(f"错误：数据不足 {LOOK_BACK} 条，无法进行预测。需要 {LOOK_BACK} 条，现有 {len(df_processed)} 条。")
-        return
+        # 4. 选择最终特征 (包含原始及生成的技术指标)
+        features = select_features(df)
+        if not features:
+            return {'error': '无法选择有效特征进行预测'}
 
-    latest_data = df_processed[features].iloc[-LOOK_BACK:].values
+        # 打印最终选择的特征数量，再次确认
+        logger.info(f"在 predict_with_model 中，选择的特征数量为: {len(features)}")
 
-    # e. 标准化数据
-    try:
-        latest_data_scaled = feature_scaler.transform(latest_data)
-    except ValueError as e:
-         print(f"错误：标准化数据时出错。特征数量可能不匹配。错误信息：{e}")
-         print(f"期望特征数量: {feature_scaler.n_features_in_}")
-         print(f"实际特征数量: {latest_data.shape[1]}")
-         print(f"使用的特征: {features}")
-         return
+        # 5. 准备序列数据
+        sequence_data = prepare_sequence_data(df, features)
+        if sequence_data is None:
+            return {'error': f'无法准备序列数据，需要至少 {LOOK_BACK} 条记录'}
 
-    # f. 重塑数据以符合模型输入要求 (1, look_back, num_features)
-    X_predict = np.reshape(latest_data_scaled, (1, LOOK_BACK, len(features)))
+        # 6. 标准化数据
+        feature_scaler_path = os.path.join(SCALER_DIR, 'feature_scaler.pkl')
+        # 在标准化之前，确保 sequence_data 的列数与 scaler 期望的列数一致
+        # scaler 是基于训练数据拟合的，训练数据经过了特征工程，特征数量约为41
+        # sequence_data 此时应该也是约41列
+        logger.info(f"准备标准化前，序列数据的形状: {sequence_data.shape} (应为 LOOK_BACK x num_features)")
 
-    print(f"准备好的预测输入形状: {X_predict.shape}")
+        normalized_data = normalize_data(sequence_data, feature_scaler_path)
+        if normalized_data is None:
+            return {'error': '无法标准化数据'}
 
-    # 4. 加载模型并预测
-    print("\n--- 开始预测下一交易日收盘价 ---")
-    predictions = {}
+        # 7. 重塑数据为模型输入格式
+        X_predict = np.reshape(normalized_data, (1, LOOK_BACK, len(features)))
 
-    for model_name, model_filename in MODEL_FILES.items():
-        model_path = os.path.join(MODEL_DIR, model_filename)
-        print(f"\n加载模型: {model_path}")
+        # 8. 加载模型
+        model_type = model_type.upper()
+        if model_type not in MODEL_FILES:
+            return {'error': f'不支持的模型类型: {model_type}'}
 
+        model_path = os.path.join(MODEL_DIR, MODEL_FILES[model_type])
         if not os.path.exists(model_path):
-            print(f"错误：模型文件 {model_path} 不存在。")
-            continue
+            return {'error': f'模型文件不存在: {model_path}'}
 
         try:
-            model = load_model(model_path)
-
-            # 执行预测
-            prediction_scaled = model.predict(X_predict)
-
-            # 反标准化预测结果
-            prediction = target_scaler.inverse_transform(prediction_scaled)
-
-            predictions[model_name] = prediction[0][0]
-            print(f"{model_name} 模型预测收盘价: {prediction[0][0]:.2f}")
-
+            # 直接加载模型
+            model = load_model(model_path, compile=False)
+            logger.info(f"成功加载模型: {model_path}")
         except Exception as e:
-            print(f"错误：加载或预测模型 {model_name} 时出错: {e}")
-            import traceback
-            traceback.print_exc()
+            logger.error(f"加载模型失败: {e}")
+            return {'error': f'加载模型失败: {str(e)}'}
 
-    # 5. 输出汇总预测结果
-    print("\n--- 预测汇总 ---")
-    if predictions:
-        for name, pred_price in predictions.items():
-            print(f"{name}: {pred_price:.2f}")
-    else:
-        print("未能成功获取任何模型的预测结果。")
+        # 9. 进行预测
+        predictions = []
+        prediction_dates = []
 
-def predict_with_model(model_type, days=7):
-    """
-    使用指定的模型进行预测
-
-    Args:
-        model_type: 模型类型 ('mlp', 'lstm', 或 'cnn')
-        days: 预测天数
-
-    Returns:
-        dict: 包含预测结果的字典，格式为 {'dates': [...], 'prices': [...]}
-    """
-    print(f"使用 {model_type.upper()} 模型预测未来 {days} 天的价格")
-
-    # 1. 加载数据
-    data_file = get_latest_data_file()
-    try:
-        df = pd.read_csv(data_file)
-
-        # 检查数据集的列名，并进行必要的映射
-        if 'date' in df.columns and '日期' not in df.columns:
-            print("检测到新数据集格式，进行列名映射...")
-            # 将日期列转换为datetime
-            df['date'] = pd.to_datetime(df['date'])
-            # 重命名列以兼容旧代码
-            df.rename(columns={'date': '日期',
-                              'open': '开盘价',
-                              'high': '最高价',
-                              'low': '最低价',
-                              'close': '收盘价',
-                              'volume': '成交量'}, inplace=True)
+        # 获取最后一天的日期
+        if 'date' in df.columns:
+            last_date = pd.to_datetime(df['date'].iloc[-1])
         else:
-            # 原始数据集格式
-            df['日期'] = pd.to_datetime(df['日期'])
+            # 如果没有日期列，使用当前日期
+            last_date = pd.Timestamp.now().normalize()
 
-        df = df.sort_values('日期')
-    except FileNotFoundError:
-        print(f"错误：数据文件 {data_file} 未找到。")
-        return {'error': f'数据文件 {data_file} 未找到'}
+        # 加载目标标准化器
+        target_scaler_path = os.path.join(SCALER_DIR, 'target_scaler.pkl')
+        target_scaler = joblib.load(target_scaler_path)
 
-    # 2. 加载标准化器
-    try:
-        feature_scaler = joblib.load(os.path.join(SCALER_DIR, 'feature_scaler.pkl'))
-        target_scaler = joblib.load(os.path.join(SCALER_DIR, 'target_scaler.pkl'))
-    except FileNotFoundError:
-        print(f"错误：标准化器文件未在 {SCALER_DIR} 找到。")
-        return {'error': f'标准化器文件未找到'}
+        # 使用当前数据进行第一次预测
+        current_input = X_predict
 
-    # 3. 准备最新数据进行预测
-    df_processed = add_technical_indicators(df.copy())
-    features = select_features(df_processed)
-    if not features:
-        print("错误：未能选择任何有效特征进行预测。")
-        return {'error': '未能选择有效特征'}
+        for i in range(days):
+            # 预测下一天
+            prediction_scaled = model.predict(current_input, verbose=0)
+            prediction = target_scaler.inverse_transform(prediction_scaled)[0][0]
 
-    df_processed = handle_missing_values(df_processed, features)
+            # 计算下一天的日期
+            next_date = last_date + pd.Timedelta(days=i+1)
 
-    if len(df_processed) < LOOK_BACK:
-        print(f"错误：数据不足 {LOOK_BACK} 条，无法进行预测。")
-        return {'error': f'数据不足 {LOOK_BACK} 条'}
+            # 保存预测结果
+            predictions.append(float(prediction))
+            prediction_dates.append(next_date.strftime('%Y-%m-%d'))
 
-    latest_data = df_processed[features].iloc[-LOOK_BACK:].values
+            # 准备下一次预测的输入
+            if i < days - 1:  # 不需要为最后一天准备下一次预测
+                # 获取当前输入的最后一天（除去第一天）
+                next_input = current_input[0, 1:, :]
 
-    try:
-        latest_data_scaled = feature_scaler.transform(latest_data)
-    except ValueError as e:
-        print(f"错误：标准化数据时出错。{e}")
-        return {'error': f'标准化数据时出错: {str(e)}'}
+                # 创建新的一天数据（复制最后一天的特征，但更新目标值）
+                new_day = np.copy(next_input[-1:, :])
 
-    X_predict = np.reshape(latest_data_scaled, (1, LOOK_BACK, len(features)))
+                # 更新目标值（假设目标值是第一个特征）
+                new_day_scaled = np.copy(new_day)
+                new_day_scaled[0, 0] = prediction_scaled[0][0]
 
-    # 4. 加载指定的模型
-    model_type = model_type.upper()
-    if model_type not in MODEL_FILES:
-        print(f"错误：不支持的模型类型 {model_type}")
-        return {'error': f'不支持的模型类型: {model_type}'}
+                # 合并数据
+                next_input = np.vstack([next_input, new_day_scaled])
 
-    model_filename = MODEL_FILES[model_type]
-    model_path = os.path.join(MODEL_DIR, model_filename)
+                # 重塑为模型输入格式
+                current_input = np.reshape(next_input, (1, LOOK_BACK, len(features)))
 
-    if not os.path.exists(model_path):
-        print(f"错误：模型文件 {model_path} 不存在。")
-        return {'error': f'模型文件不存在: {model_filename}'}
+        logger.info(f"预测完成，共 {len(predictions)} 天")
 
-    try:
-        model = load_model(model_path)
+        return {
+            'dates': prediction_dates,
+            'prices': predictions
+        }
+
     except Exception as e:
-        print(f"错误：加载模型 {model_type} 时出错: {e}")
-        return {'error': f'加载模型时出错: {str(e)}'}
-
-    # 5. 进行预测
-    predictions = []
-    prediction_dates = []
-
-    # 获取最后一天的日期
-    last_date = df['日期'].iloc[-1]
-
-    # 使用当前数据进行第一次预测
-    current_input = X_predict
-
-    for i in range(days):
-        # 预测下一天
-        prediction_scaled = model.predict(current_input)
-        prediction = target_scaler.inverse_transform(prediction_scaled)[0][0]
-
-        # 计算下一天的日期
-        next_date = last_date + pd.Timedelta(days=i+1)
-
-        # 保存预测结果
-        predictions.append(float(prediction))
-        prediction_dates.append(next_date.strftime('%Y-%m-%d'))
-
-        # 准备下一次预测的输入
-        # 移除最早的一天数据，添加新预测的一天
-        if i < days - 1:  # 不需要为最后一天准备下一次预测
-            # 获取当前输入的最后一天（除去第一天）
-            next_input = current_input[0, 1:, :]
-
-            # 创建新的一天数据（复制最后一天的特征，但更新目标值）
-            new_day = np.copy(next_input[-1:, :])
-
-            # 更新目标值（假设目标值是第一个特征）
-            # 注意：这里简化处理，实际应用中可能需要更复杂的逻辑
-            new_day_scaled = np.copy(new_day)
-            new_day_scaled[0, 0] = prediction_scaled[0][0]
-
-            # 合并数据
-            next_input = np.vstack([next_input, new_day_scaled])
-
-            # 重塑为模型输入格式
-            current_input = np.reshape(next_input, (1, LOOK_BACK, len(features)))
-
-    print(f"预测完成，共 {len(predictions)} 天")
-
-    return {
-        'dates': prediction_dates,
-        'prices': predictions
-    }
+        logger.error(f"预测过程中出错: {e}")
+        import traceback
+        traceback.print_exc()
+        return {'error': f'预测过程中出错: {str(e)}'}
 
 if __name__ == "__main__":
     main()

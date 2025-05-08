@@ -250,66 +250,127 @@ def view_data():
 
 def load_model_metrics():
     """加载模型评估指标"""
-    # 使用相对于当前文件的路径
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    full_metrics_path = os.path.join(current_dir, METRICS_FILE_PATH)
+    # 默认指标数据，如果无法加载文件时使用
+    default_metrics = {
+        'mlp': {'accuracy': 97.71, 'rmse': 104.08},
+        'lstm': {'accuracy': 97.34, 'rmse': 144.14},
+        'cnn': {'accuracy': 97.25, 'rmse': 127.27}
+    }
 
-    # 如果主路径不存在，尝试备用路径
-    if not os.path.exists(full_metrics_path):
-        logger.warning(f"主指标文件 {full_metrics_path} 未找到，尝试备用路径")
+    # 尝试从 all_models_training_summary.json 加载模型指标
+    try:
+        # 获取项目根目录
+        base_dir = os.path.dirname(current_app.root_path)
+        summary_path = os.path.join(base_dir, 'results', 'all_models_training_summary.json')
 
-        # 尝试相对于当前文件的备用路径
-        for backup_path in BACKUP_METRICS_PATHS:
-            temp_path = os.path.join(current_dir, backup_path)
-            if os.path.exists(temp_path):
-                full_metrics_path = temp_path
-                logger.info(f"使用备用指标文件: {full_metrics_path}")
-                break
+        # 检查文件是否存在
+        if os.path.exists(summary_path):
+            logger.info(f"正在从 all_models_training_summary.json 加载模型指标")
+            with open(summary_path, 'r') as f:
+                summary_data = json.load(f)
 
-        # 如果仍然找不到，尝试相对于项目根目录的路径
+            # 从 summary_data 中提取每个模型的最新评估指标
+            metrics = {}
+
+            # 处理 MLP 模型
+            if 'MLP' in summary_data and summary_data['MLP']:
+                latest_mlp = summary_data['MLP'][-1]  # 获取最新的 MLP 模型数据
+                if 'evaluation_metrics' in latest_mlp:
+                    eval_metrics = latest_mlp['evaluation_metrics']
+                    metrics['mlp'] = {
+                        'accuracy': eval_metrics.get('Accuracy', default_metrics['mlp']['accuracy']),
+                        'rmse': eval_metrics.get('RMSE', default_metrics['mlp']['rmse']),
+                        'mae': eval_metrics.get('MAE', 0),
+                        'r2': eval_metrics.get('R2', 0),
+                        'mape': eval_metrics.get('MAPE', 0)
+                    }
+
+            # 处理 LSTM 模型
+            if 'LSTM' in summary_data and summary_data['LSTM']:
+                latest_lstm = summary_data['LSTM'][-1]  # 获取最新的 LSTM 模型数据
+                if 'evaluation_metrics' in latest_lstm:
+                    eval_metrics = latest_lstm['evaluation_metrics']
+                    metrics['lstm'] = {
+                        'accuracy': eval_metrics.get('Accuracy', default_metrics['lstm']['accuracy']),
+                        'rmse': eval_metrics.get('RMSE', default_metrics['lstm']['rmse']),
+                        'mae': eval_metrics.get('MAE', 0),
+                        'r2': eval_metrics.get('R2', 0),
+                        'mape': eval_metrics.get('MAPE', 0)
+                    }
+
+            # 处理 CNN 模型
+            if 'CNN' in summary_data and summary_data['CNN']:
+                latest_cnn = summary_data['CNN'][-1]  # 获取最新的 CNN 模型数据
+                if 'evaluation_metrics' in latest_cnn:
+                    eval_metrics = latest_cnn['evaluation_metrics']
+                    metrics['cnn'] = {
+                        'accuracy': eval_metrics.get('Accuracy', default_metrics['cnn']['accuracy']),
+                        'rmse': eval_metrics.get('RMSE', default_metrics['cnn']['rmse']),
+                        'mae': eval_metrics.get('MAE', 0),
+                        'r2': eval_metrics.get('R2', 0),
+                        'mape': eval_metrics.get('MAPE', 0)
+                    }
+
+            # 确保所有必要的模型都存在
+            if all(model in metrics for model in ['mlp', 'lstm', 'cnn']):
+                logger.info(f"成功从 all_models_training_summary.json 加载模型指标: {metrics}")
+                return metrics
+            else:
+                # 如果缺少某些模型，使用默认值填充
+                logger.warning(f"从 all_models_training_summary.json 加载的模型指标不完整，使用默认值填充缺失的模型")
+                for model in ['mlp', 'lstm', 'cnn']:
+                    if model not in metrics:
+                        metrics[model] = default_metrics[model]
+                return metrics
+
+        # 如果 all_models_training_summary.json 不存在，尝试使用旧的指标文件
+        logger.warning(f"all_models_training_summary.json 不存在，尝试使用旧的指标文件")
+
+        # 使用相对于当前文件的路径
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        full_metrics_path = os.path.join(current_dir, METRICS_FILE_PATH)
+
+        # 如果主路径不存在，尝试备用路径
         if not os.path.exists(full_metrics_path):
-            base_dir = os.path.dirname(current_app.root_path)
+            logger.warning(f"主指标文件 {full_metrics_path} 未找到，尝试备用路径")
+
+            # 尝试相对于当前文件的备用路径
             for backup_path in BACKUP_METRICS_PATHS:
-                temp_path = os.path.join(base_dir, backup_path)
+                temp_path = os.path.join(current_dir, backup_path)
                 if os.path.exists(temp_path):
                     full_metrics_path = temp_path
-                    logger.info(f"使用项目根目录下的备用指标文件: {full_metrics_path}")
+                    logger.info(f"使用备用指标文件: {full_metrics_path}")
                     break
 
-    try:
-        # 尝试加载指标文件
+            # 如果仍然找不到，尝试相对于项目根目录的路径
+            if not os.path.exists(full_metrics_path):
+                for backup_path in BACKUP_METRICS_PATHS:
+                    temp_path = os.path.join(base_dir, backup_path)
+                    if os.path.exists(temp_path):
+                        full_metrics_path = temp_path
+                        logger.info(f"使用项目根目录下的备用指标文件: {full_metrics_path}")
+                        break
+
+        # 尝试加载旧的指标文件
         if os.path.exists(full_metrics_path):
-            logger.info(f"正在加载模型指标文件: {full_metrics_path}")
+            logger.info(f"正在加载旧的模型指标文件: {full_metrics_path}")
             with open(full_metrics_path, 'r') as f:
                 metrics = json.load(f)
 
             # 确保指标文件包含所有必要的模型
-            if not all(model in metrics for model in ['mlp', 'lstm', 'cnn']):
-                logger.warning(f"指标文件不完整，使用最新的准确率数据")
-                # 使用最新的准确率数据
-                metrics = {
-                    'mlp': {'accuracy': 97.71, 'rmse': 104.08},
-                    'lstm': {'accuracy': 97.34, 'rmse': 144.14},
-                    'cnn': {'accuracy': 97.25, 'rmse': 127.27}
-                }
+            if all(model in metrics for model in ['mlp', 'lstm', 'cnn']):
+                return metrics
 
-            return metrics
-        else:
-            # 如果文件不存在，返回最新的准确率数据
-            logger.warning(f"模型指标文件不存在，使用最新的准确率数据")
-            return {
-                'mlp': {'accuracy': 97.71, 'rmse': 104.08},
-                'lstm': {'accuracy': 97.34, 'rmse': 144.14},
-                'cnn': {'accuracy': 97.25, 'rmse': 127.27}
-            }
+        # 如果所有尝试都失败，返回默认指标数据
+        logger.warning(f"无法加载任何模型指标文件，使用默认指标数据")
+        return default_metrics
+
     except Exception as e:
         logger.error(f"加载模型指标时出错: {e}")
-        # 返回最新的准确率数据
-        return {
-            'mlp': {'accuracy': 97.71, 'rmse': 104.08},
-            'lstm': {'accuracy': 97.34, 'rmse': 144.14},
-            'cnn': {'accuracy': 97.25, 'rmse': 127.27}
-        }
+        import traceback
+        traceback.print_exc()
+        # 返回默认指标数据
+        return default_metrics
 
 @bp.route('/api/model-metrics')
 def get_model_metrics():

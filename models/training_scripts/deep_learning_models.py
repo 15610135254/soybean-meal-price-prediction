@@ -8,6 +8,7 @@ import time
 import random
 from datetime import datetime
 import platform
+import json
 
 # 设置GPU内存增长，避免一次性占用所有GPU内存
 gpus = tf.config.list_physical_devices('GPU')
@@ -146,18 +147,25 @@ class DeepLearningModels:
         # 按日期升序排序
         self.df = self.df.sort_values(self.date_col)
 
-        # 添加更多的技术指标特征
-        self.add_technical_indicators()
-        print(f"添加技术指标后，DataFrame 形状: {self.df.shape}")
+        # 根据用户要求，不添加新的技术指标特征，将直接从现有列中选择特征。
+        # 因此，我们注释掉 self.add_technical_indicators()
+        # self.add_technical_indicators()
+        # The print statement below is also removed as no indicators are added.
+        # print(f"添加技术指标后，DataFrame 形状: {self.df.shape}")
+        print("信息: 根据用户要求，不添加新的技术指标。将从原始数据列中选择特征。")
 
-        # 显示数据的基本信息
-        print(f"数据行数: {len(self.df)}")
-        print(f"数据列数: {len(self.df.columns)}")
+        # 显示数据的基本信息 (在选择特征之前)
+        # print(f"数据准备阶段 - DataFrame 形状 (在排序之后，特征选择之前): {self.df.shape}") # 这行可以省略，因为紧接着就有select_features
+        print(f"原始数据行数: {len(self.df)}")
+        print(f"原始数据列数 (包括日期和目标列): {len(self.df.columns)}")
         print(f"时间范围: {self.df[self.date_col].min()} 至 {self.df[self.date_col].max()}")
 
-        # 选择要使用的特征
-        self.features = self.select_features()
-        print(f"选择特征后 ({len(self.features)} 个特征)，DataFrame 形状: {self.df.shape}")
+        # 选择要使用的特征 (此方法将被修改为仅从现有列中选择)
+        self.features = self.select_features() # self.select_features() 将被修改
+        # self.features 现在是特征列名的列表.
+        # self.df 本身在列数上可能没有改变，但 select_features 内部的 to_numeric 可能已修改了某些列的数据类型。
+        print(f"选择的特征列表 ({len(self.features)} 个特征): {self.features}")
+        # print(f"选择特征后 ({len(self.features)} 个特征)，DataFrame 形状: {self.df.shape}") # DataFrame的列数本身不因特征列表的创建而改变
 
         # 处理缺失值
         self.handle_missing_values()
@@ -327,77 +335,76 @@ class DeepLearningModels:
             # 可以在这里抛出异常，或者允许流程继续但 split_data 中会捕获
 
     def select_features(self):
-        """选择模型使用的特征"""
-        # 确定使用的列名
-        if 'close' in self.df.columns:
-            # 新数据集格式
-            basic_features = ['close', 'open', 'high', 'low', 'volume']
+        """
+        选择模型使用的特征。
+        根据用户要求，此版本仅从加载的原始数据中选择特征，
+        排除日期列和目标列，并确保它们是数值类型。
+        不添加任何新的计算指标。
+        """
+        print("信息: 正在从原始加载数据中选择特征，不添加新计算指标。")
+        if self.df is None or self.df.empty:
+            raise ValueError("错误: DataFrame未加载或为空，无法选择特征。")
 
-            # 技术指标特征
-            tech_features = []
-            potential_features = [
-                # 新格式技术指标
-                'MA_5', 'MA_10', 'MA_20', 'MA_30',
-                'HV_20', 'ATR_14', 'RSI_14', 'OBV', 'MACD',
-                # 新数据集特有的特征
-                'a_close', 'c_close', 'LPR1Y', '大豆产量(万吨)', 'GDP',
-                'hold'  # 持仓量
-            ]
+        all_loaded_columns = self.df.columns.tolist()
+
+        # 确定要排除的列: 日期列 (self.date_col) 和目标列 (self.target_col)
+        # 这些属性应该在调用此方法之前已经被正确设置
+        columns_to_exclude = []
+        if hasattr(self, 'date_col') and self.date_col:
+            columns_to_exclude.append(self.date_col)
         else:
-            # 旧数据集格式
-            basic_features = ['收盘价', '开盘价', '最高价', '最低价', '成交量']
+            print("警告: 'self.date_col' 未定义或为空，可能导致日期列未被正确排除。")
 
-            # 技术指标特征
-            tech_features = []
-            potential_features = ['涨跌幅', 'MA5', 'MA10', 'MA20', 'MA30', 'EMA12', 'EMA26', 'RSI', 'MACD', 'K', 'D', 'J']
+        if hasattr(self, 'target_col') and self.target_col:
+            columns_to_exclude.append(self.target_col)
+        else:
+            print("警告: 'self.target_col' 未定义或为空，可能导致目标列未被正确排除。")
+        
+        # 确保排除列表中的列名确实存在于DataFrame中，避免KeyError
+        columns_to_exclude = [col for col in columns_to_exclude if col in all_loaded_columns]
 
-        # 添加我们计算的技术指标
-        additional_features = [
-            '价格变化', '价格变化率', '日内波动率',
-            'MA5_diff', 'MA5_slope', 'MA5_std',
-            'MA10_diff', 'MA10_slope', 'MA10_std',
-            'MA20_diff', 'MA20_slope', 'MA20_std',
-            'MA30_diff', 'MA30_slope', 'MA30_std',
-            '20日波动率', '10日波动率',
-            'MACD_diff', 'MACD_slope',
-            'RSI_diff', 'RSI_slope', 'RSI_MA5',
-            'KD_diff', 'KD_cross',
-            '成交量变化率', '成交量MA5', '量价背离',
-            '上升趋势', '强势上升',
-            '星期', '月份', '季度',
-            # 新数据集特有的特征
-            '豆粕_大豆价差', '豆粕_玉米价差', '豆粕_大豆比率', '豆粕_玉米比率'
-        ]
-
-        # 检查哪些技术指标存在于数据集中
-        for feature in potential_features:
-            if feature in self.df.columns:
-                tech_features.append(feature)
-
-        # 检查哪些额外特征存在于数据集中
-        extra_features = []
-        for feature in additional_features:
-            if feature in self.df.columns:
-                extra_features.append(feature)
-
-        # 将所有特征合并
-        all_features = basic_features + tech_features + extra_features
-
-        # 确保所有特征都是数值类型
-        final_features = []
-        for feature in all_features:
-            if feature in self.df.columns:
-                if not pd.api.types.is_numeric_dtype(self.df[feature]):
+        potential_feature_names = [col for col in all_loaded_columns if col not in columns_to_exclude]
+        
+        final_selected_features = []
+        for feature_name in potential_feature_names:
+            if feature_name in self.df.columns: # 再次确认列存在
+                if not pd.api.types.is_numeric_dtype(self.df[feature_name]):
+                    print(f"信息: 特征 '{feature_name}' 非数值类型，尝试转换为数值类型...")
                     try:
-                        self.df[feature] = pd.to_numeric(self.df[feature], errors='coerce')
-                        final_features.append(feature)
-                    except:
-                        print(f"移除非数值特征: {feature}")
+                        # 原地转换列类型，并将无法转换的值设为NaN
+                        self.df[feature_name] = pd.to_numeric(self.df[feature_name], errors='coerce')
+                        # 检查转换后是否所有值都变为NaN (例如，如果列是纯文本)
+                        if self.df[feature_name].isnull().all():
+                            print(f"警告: 特征 '{feature_name}' 转换为数值后全为NaN。此特征将不被使用。")
+                        else:
+                            final_selected_features.append(feature_name)
+                            print(f"信息: 特征 '{feature_name}' 已成功转换为数值类型。")
+                    except Exception as e:
+                        print(f"警告: 转换特征 '{feature_name}' 为数值类型失败: {e}。此特征将不被使用。")
                 else:
-                    final_features.append(feature)
+                    final_selected_features.append(feature_name) # 本身就是数值类型
+            else:
+                # 这个情况理论上不应该发生，因为是从all_loaded_columns开始的
+                print(f"警告: 在特征选择过程中，预期中的列 '{feature_name}' 未在DataFrame中找到。")
 
-        print(f"选择的特征: {final_features}")
-        return final_features
+        print(f"信息: 最终选择用于模型的特征共 {len(final_selected_features)} 个: {final_selected_features}")
+        
+        # 根据用户请求检查特征数量，现在将强制要求16个特征 (根据date1.csv的实际情况调整)
+        expected_feature_count = 16
+        if len(final_selected_features) != expected_feature_count:
+            error_message = (
+                f"错误: 模型固定需要 {expected_feature_count} 个特征，但实际从数据文件 '{self.data_file}' 中选择了 {len(final_selected_features)} 个。\n"
+                f"       检查要点：\n"
+                f"         1. 数据文件 '{self.data_file}' 是否包含正确的列数？\n"
+                f"         2. 日期列 ('{self.date_col if hasattr(self, 'date_col') else '未定'}') 和目标列 ('{self.target_col if hasattr(self, 'target_col') else '未定'}') 是否被正确识别并排除？\n"
+                f"         3. 排除上述两列后，其余的 {expected_feature_count} 个预期特征列是否都存在且为数值类型 (或可成功转换为数值类型)？\n"
+                f"       当前所有加载的列: {all_loaded_columns}\n"
+                f"       被定义为日期/目标而排除的列: {columns_to_exclude}\n"
+                f"       最终选择的特征: {final_selected_features}"
+            )
+            raise ValueError(error_message)
+
+        return final_selected_features
 
     def split_data(self, test_size=0.1, val_size=0.1):
         """分割数据为训练集、验证集和测试集"""
@@ -946,6 +953,73 @@ class DeepLearningModels:
 
         # 绘制训练历史
         self.plot_training_history(model_type, history, timestamp)
+
+        # --- BEGIN: Added code for saving to JSON ---
+        model_info_to_save = {
+            'model_type': model_type,
+            'timestamp': timestamp,
+            'data_file_used': self.data_file,
+            'look_back': self.look_back,
+            'model_parameters': params, # Actual parameters used for model creation
+            'training_time_seconds': round(training_time, 2),
+            'evaluation_metrics': self.metrics.get(model_type, {}),
+            'saved_model_path': f'{model_path}.h5',
+            'checkpoint_path': f'{checkpoint_path}.h5',
+            'log_csv_path': f'{log_path}.csv',
+            'results_metrics_path': f'results/{model_type.lower()}_{timestamp}_metrics.txt',
+            'training_history_plot_path': f'results/{model_type.lower()}_{timestamp}_training_history.png',
+            'prediction_details_plot_path': f'results/{model_type.lower()}_{timestamp}_prediction_details.png'
+        }
+
+        # Ensure results directory exists for the JSON file (though create_directories should handle it)
+        results_dir = 'results'
+        os.makedirs(results_dir, exist_ok=True) # Harmless if already exists
+        json_output_path = os.path.join(results_dir, 'all_models_training_summary.json')
+
+        all_models_data = {}
+        if os.path.exists(json_output_path):
+            try:
+                with open(json_output_path, 'r') as f:
+                    content = f.read()
+                    if content.strip(): # Check if file is not empty
+                        all_models_data = json.loads(content)
+                    else:
+                        print(f"信息: JSON文件 '{json_output_path}' 为空，将创建新内容。")
+            except json.JSONDecodeError:
+                print(f"警告: JSON文件 '{json_output_path}' 损坏或格式不正确，将创建新文件。")
+            except Exception as e:
+                print(f"警告: 读取JSON文件 '{json_output_path}' 时发生错误: {e}，将创建新文件。")
+        
+        # Store runs as a list under each model_type key
+        if model_type not in all_models_data:
+            all_models_data[model_type] = []
+        all_models_data[model_type].append(model_info_to_save)
+
+        try:
+            with open(json_output_path, 'w') as f:
+                json.dump(all_models_data, f, indent=4, ensure_ascii=False) # ensure_ascii=False for Chinese characters if any in paths
+            print(f"模型信息已更新到: {json_output_path}")
+        except TypeError as te:
+            print(f"错误: 无法序列化模型信息到JSON (可能是参数包含不支持的类型): {te}")
+            # Attempt to save with problematic parts converted to string
+            try:
+                # A more robust serialization would involve custom encoders or careful type checking
+                # For now, a simple fallback: convert entire params to str if it's the cause
+                if 'model_parameters' in str(te).lower(): # Crude check if params is the issue
+                    model_info_to_save['model_parameters'] = str(params)
+                # Re-attempt saving if model_info_to_save was modified
+                if model_type in all_models_data and all_models_data[model_type]:
+                    all_models_data[model_type][-1] = model_info_to_save # Update the last appended item
+
+                with open(json_output_path, 'w') as f:
+                    json.dump(all_models_data, f, indent=4, ensure_ascii=False)
+                print(f"模型信息已更新到 (部分参数可能已转换为字符串): {json_output_path}")
+
+            except Exception as e_fallback:
+                 print(f"错误: 尝试回退保存到JSON失败: {e_fallback}")
+        except Exception as e:
+            print(f"错误: 无法将模型信息保存到JSON: {e}")
+        # --- END: Added code for saving to JSON ---
 
         return model, history
 
