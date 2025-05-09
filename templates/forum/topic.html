@@ -39,16 +39,7 @@
         border-top: 1px solid #dee2e6;
         font-size: 0.9rem;
     }
-    .avatar {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        object-fit: cover;
-    }
-    .avatar-lg {
-        width: 60px;
-        height: 60px;
-    }
+
     .user-info {
         font-size: 0.9rem;
     }
@@ -112,7 +103,6 @@
                         </h2>
                         <div class="topic-meta d-flex justify-content-between align-items-center mt-3">
                             <div class="d-flex align-items-center">
-                                <img src="{{ topic.avatar }}" alt="{{ topic.username }}" class="avatar me-2">
                                 <div>
                                     <div class="fw-bold">{{ topic.username }}</div>
                                     <div class="small">发表于：{{ topic.created_at }}</div>
@@ -166,7 +156,6 @@
             <div class="card reply-card" id="reply-{{ reply.id }}">
                 <div class="reply-header d-flex justify-content-between align-items-center">
                     <div class="d-flex align-items-center">
-                        <img src="{{ reply.avatar }}" alt="{{ reply.username }}" class="avatar me-2">
                         <div>
                             <div class="fw-bold">{{ reply.username }}</div>
                             <div class="small">{{ reply.created_at }}</div>
@@ -253,7 +242,6 @@
                     <h5 class="mb-0"><i class="bi bi-person"></i> 作者信息</h5>
                 </div>
                 <div class="card-body text-center">
-                    <img src="{{ topic.avatar }}" alt="{{ topic.username }}" class="avatar-lg mb-3">
                     <h5>{{ topic.username }}</h5>
                     <div class="user-info mb-3">
                         {% if topic.user_id == 1 %}

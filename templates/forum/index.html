@@ -25,18 +25,7 @@
     .topic-card.announcement {
         border-left-color: #ffc107;
     }
-    .avatar {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        object-fit: cover;
-    }
-    .avatar-sm {
-        width: 30px;
-        height: 30px;
-        border-radius: 50%;
-        object-fit: cover;
-    }
+
     .topic-stats {
         text-align: center;
         min-width: 60px;
@@ -70,65 +59,36 @@
         <div class="col-md-8">
             <ul class="nav nav-tabs">
                 <li class="nav-item">
-                    <a class="nav-link active" href="#">全部主题</a>
+                    <a class="nav-link {{ 'active' if current_category == 'all' }}" href="{{ url_for('forum.index', category='all') }}">全部主题</a>
                 </li>
+                {% for category in categories %}
                 <li class="nav-item">
-                    <a class="nav-link" href="#">热门讨论</a>
+                    <a class="nav-link {{ 'active' if current_category == category.id }}" href="{{ url_for('forum.index', category=category.id) }}">{{ category.name }}</a>
                 </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="#">精华帖</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="#">我的帖子</a>
-                </li>
+                {% endfor %}
             </ul>
         </div>
         <div class="col-md-4">
-            <div class="input-group">
-                <input type="text" class="form-control" placeholder="搜索主题..." aria-label="搜索主题">
-                <button class="btn btn-primary" type="button"><i class="bi bi-search"></i></button>
-            </div>
+            <form action="{{ url_for('forum.search') }}" method="get" class="input-group">
+                <input type="text" name="keyword" class="form-control" placeholder="搜索主题..." aria-label="搜索主题" required>
+                <button class="btn btn-primary" type="submit"><i class="bi bi-search"></i></button>
+            </form>
         </div>
     </div>
 
     <!-- 论坛版块 -->
     <div class="row mb-4">
+        {% for category in categories %}
         <div class="col-md-3">
             <div class="card forum-card">
                 <div class="card-body text-center">
-                    <i class="bi bi-graph-up text-primary" style="font-size: 2rem;"></i>
-                    <h5 class="mt-2">市场分析</h5>
-                    <div class="small text-muted">125 主题 · 1,234 回复</div>
+                    <i class="bi {{ category.icon }} text-{{ category.color }}" style="font-size: 2rem;"></i>
+                    <h5 class="mt-2">{{ category.name }}</h5>
+                    <div class="small text-muted">{{ category.topics }} 主题 · {{ category.replies }} 回复</div>
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card forum-card">
-                <div class="card-body text-center">
-                    <i class="bi bi-lightbulb text-warning" style="font-size: 2rem;"></i>
-                    <h5 class="mt-2">交易策略</h5>
-                    <div class="small text-muted">98 主题 · 876 回复</div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card forum-card">
-                <div class="card-body text-center">
-                    <i class="bi bi-newspaper text-success" style="font-size: 2rem;"></i>
-                    <h5 class="mt-2">新闻解读</h5>
-                    <div class="small text-muted">76 主题 · 654 回复</div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card forum-card">
-                <div class="card-body text-center">
-                    <i class="bi bi-people text-info" style="font-size: 2rem;"></i>
-                    <h5 class="mt-2">新手交流</h5>
-                    <div class="small text-muted">145 主题 · 1,876 回复</div>
-                </div>
-            </div>
-        </div>
+        {% endfor %}
     </div>
 
     <!-- 主题列表 -->
@@ -141,28 +101,31 @@
                 </div>
                 <div class="card-body p-0">
                     <div class="list-group list-group-flush">
+                        {% for topic in announcements %}
                         <div class="list-group-item topic-card announcement d-flex align-items-center p-3">
-                            <div class="me-3">
-                                <img src="https://via.placeholder.com/40" alt="管理员头像" class="avatar">
-                            </div>
                             <div class="flex-grow-1">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <h6 class="mb-0">
-                                        <span class="badge bg-danger topic-badge me-1">置顶</span>
+                                        {% if topic.is_sticky %}<span class="badge bg-danger topic-badge me-1">置顶</span>{% endif %}
                                         <span class="badge bg-warning topic-badge me-1">公告</span>
-                                        <a href="{{ url_for('forum.topic', topic_id=1) }}" class="text-decoration-none">论坛规则更新：请文明发言，禁止发布广告内容</a>
+                                        <a href="{{ url_for('forum.topic', topic_id=topic.id) }}" class="text-decoration-none">{{ topic.title }}</a>
                                     </h6>
-                                    <small class="text-muted">2023-04-20</small>
+                                    <small class="text-muted">{{ topic.created_at }}</small>
                                 </div>
                                 <div class="small text-muted mt-1">
-                                    <span class="fw-bold">管理员</span> · 最后回复：2023-05-01
+                                    <span class="fw-bold">{{ topic.username }}</span> · 最后回复：{{ topic.last_reply_at }}
                                 </div>
                             </div>
                             <div class="ms-3 topic-stats">
-                                <div class="fw-bold">24</div>
+                                <div class="fw-bold">{{ topic.replies }}</div>
                                 <small class="text-muted">回复</small>
                             </div>
                         </div>
+                        {% else %}
+                        <div class="list-group-item p-3 text-center text-muted">
+                            暂无公告
+                        </div>
+                        {% endfor %}
                     </div>
                 </div>
             </div>
@@ -174,50 +137,31 @@
                 </div>
                 <div class="card-body p-0">
                     <div class="list-group list-group-flush">
+                        {% for topic in hot_topics %}
                         <div class="list-group-item topic-card hot d-flex align-items-center p-3">
-                            <div class="me-3">
-                                <img src="https://via.placeholder.com/40" alt="用户头像" class="avatar">
-                            </div>
                             <div class="flex-grow-1">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <h6 class="mb-0">
                                         <span class="badge bg-danger topic-badge me-1">热门</span>
-                                        <span class="badge bg-primary topic-badge me-1">市场分析</span>
-                                        <a href="{{ url_for('forum.topic', topic_id=2) }}" class="text-decoration-none">如何看待近期豆粕价格波动？</a>
+                                        <span class="badge bg-{{ 'primary' if topic.category == 'market_analysis' else 'warning' if topic.category == 'trading_strategy' else 'success' if topic.category == 'news_analysis' else 'info' if topic.category == 'beginner' else 'secondary' }} topic-badge me-1">{{ topic.category_name }}</span>
+                                        <a href="{{ url_for('forum.topic', topic_id=topic.id) }}" class="text-decoration-none">{{ topic.title }}</a>
                                     </h6>
-                                    <small class="text-muted">2023-05-02</small>
+                                    <small class="text-muted">{{ topic.created_at }}</small>
                                 </div>
                                 <div class="small text-muted mt-1">
-                                    <span class="fw-bold">交易达人</span> · 最后回复：2 小时前
+                                    <span class="fw-bold">{{ topic.username }}</span> · 最后回复：{{ topic.last_reply_at }}
                                 </div>
                             </div>
                             <div class="ms-3 topic-stats">
-                                <div class="fw-bold">32</div>
+                                <div class="fw-bold">{{ topic.replies }}</div>
                                 <small class="text-muted">回复</small>
                             </div>
                         </div>
-                        <div class="list-group-item topic-card hot d-flex align-items-center p-3">
-                            <div class="me-3">
-                                <img src="https://via.placeholder.com/40" alt="用户头像" class="avatar">
-                            </div>
-                            <div class="flex-grow-1">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <h6 class="mb-0">
-                                        <span class="badge bg-danger topic-badge me-1">热门</span>
-                                        <span class="badge bg-warning topic-badge me-1">交易策略</span>
-                                        <a href="{{ url_for('forum.topic', topic_id=3) }}" class="text-decoration-none">深度学习模型在期货预测中的应用</a>
-                                    </h6>
-                                    <small class="text-muted">2023-05-01</small>
-                                </div>
-                                <div class="small text-muted mt-1">
-                                    <span class="fw-bold">AI研究者</span> · 最后回复：5 小时前
-                                </div>
-                            </div>
-                            <div class="ms-3 topic-stats">
-                                <div class="fw-bold">18</div>
-                                <small class="text-muted">回复</small>
-                            </div>
+                        {% else %}
+                        <div class="list-group-item p-3 text-center text-muted">
+                            暂无热门主题
                         </div>
+                        {% endfor %}
                     </div>
                 </div>
             </div>
@@ -229,117 +173,36 @@
                 </div>
                 <div class="card-body p-0">
                     <div class="list-group list-group-flush topic-list-container">
+                        {% for topic in latest_topics %}
                         <div class="list-group-item topic-card d-flex align-items-center p-3">
-                            <div class="me-3">
-                                <img src="https://via.placeholder.com/40" alt="用户头像" class="avatar">
-                            </div>
                             <div class="flex-grow-1">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <h6 class="mb-0">
-                                        <span class="badge bg-primary topic-badge me-1">市场分析</span>
-                                        <a href="{{ url_for('forum.topic', topic_id=4) }}" class="text-decoration-none">豆粕期货交易策略分享</a>
+                                        <span class="badge bg-{{ 'primary' if topic.category == 'market_analysis' else 'warning' if topic.category == 'trading_strategy' else 'success' if topic.category == 'news_analysis' else 'info' if topic.category == 'beginner' else 'secondary' }} topic-badge me-1">{{ topic.category_name }}</span>
+                                        <a href="{{ url_for('forum.topic', topic_id=topic.id) }}" class="text-decoration-none">{{ topic.title }}</a>
                                     </h6>
-                                    <small class="text-muted">2023-05-03</small>
+                                    <small class="text-muted">{{ topic.created_at }}</small>
                                 </div>
                                 <div class="small text-muted mt-1">
-                                    <span class="fw-bold">期货老手</span> · 最后回复：1 小时前
+                                    <span class="fw-bold">{{ topic.username }}</span> · 最后回复：{{ topic.last_reply_at }}
                                 </div>
                             </div>
                             <div class="ms-3 topic-stats">
-                                <div class="fw-bold">45</div>
+                                <div class="fw-bold">{{ topic.replies }}</div>
                                 <small class="text-muted">回复</small>
                             </div>
                         </div>
-                        <div class="list-group-item topic-card d-flex align-items-center p-3">
-                            <div class="me-3">
-                                <img src="https://via.placeholder.com/40" alt="用户头像" class="avatar">
-                            </div>
-                            <div class="flex-grow-1">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <h6 class="mb-0">
-                                        <span class="badge bg-success topic-badge me-1">新闻解读</span>
-                                        <a href="{{ url_for('forum.topic', topic_id=5) }}" class="text-decoration-none">解读：中国大豆进口量创新高对豆粕价格的影响</a>
-                                    </h6>
-                                    <small class="text-muted">2023-05-03</small>
-                                </div>
-                                <div class="small text-muted mt-1">
-                                    <span class="fw-bold">市场分析师</span> · 最后回复：3 小时前
-                                </div>
-                            </div>
-                            <div class="ms-3 topic-stats">
-                                <div class="fw-bold">12</div>
-                                <small class="text-muted">回复</small>
-                            </div>
+                        {% else %}
+                        <div class="list-group-item p-3 text-center text-muted">
+                            暂无主题
                         </div>
-                        <div class="list-group-item topic-card d-flex align-items-center p-3">
-                            <div class="me-3">
-                                <img src="https://via.placeholder.com/40" alt="用户头像" class="avatar">
-                            </div>
-                            <div class="flex-grow-1">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <h6 class="mb-0">
-                                        <span class="badge bg-info topic-badge me-1">新手交流</span>
-                                        <a href="{{ url_for('forum.topic', topic_id=6) }}" class="text-decoration-none">新手求助：如何开始豆粕期货交易？</a>
-                                    </h6>
-                                    <small class="text-muted">2023-05-02</small>
-                                </div>
-                                <div class="small text-muted mt-1">
-                                    <span class="fw-bold">期货新手</span> · 最后回复：昨天
-                                </div>
-                            </div>
-                            <div class="ms-3 topic-stats">
-                                <div class="fw-bold">28</div>
-                                <small class="text-muted">回复</small>
-                            </div>
-                        </div>
-                        <div class="list-group-item topic-card d-flex align-items-center p-3">
-                            <div class="me-3">
-                                <img src="https://via.placeholder.com/40" alt="用户头像" class="avatar">
-                            </div>
-                            <div class="flex-grow-1">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <h6 class="mb-0">
-                                        <span class="badge bg-warning topic-badge me-1">交易策略</span>
-                                        <a href="{{ url_for('forum.topic', topic_id=7) }}" class="text-decoration-none">技术分析：豆粕期货突破前高后的操作建议</a>
-                                    </h6>
-                                    <small class="text-muted">2023-05-02</small>
-                                </div>
-                                <div class="small text-muted mt-1">
-                                    <span class="fw-bold">技术派</span> · 最后回复：昨天
-                                </div>
-                            </div>
-                            <div class="ms-3 topic-stats">
-                                <div class="fw-bold">15</div>
-                                <small class="text-muted">回复</small>
-                            </div>
-                        </div>
-                        <div class="list-group-item topic-card d-flex align-items-center p-3">
-                            <div class="me-3">
-                                <img src="https://via.placeholder.com/40" alt="用户头像" class="avatar">
-                            </div>
-                            <div class="flex-grow-1">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <h6 class="mb-0">
-                                        <span class="badge bg-primary topic-badge me-1">市场分析</span>
-                                        <a href="{{ url_for('forum.topic', topic_id=8) }}" class="text-decoration-none">基本面分析：饲料需求增长对豆粕价格的支撑</a>
-                                    </h6>
-                                    <small class="text-muted">2023-05-01</small>
-                                </div>
-                                <div class="small text-muted mt-1">
-                                    <span class="fw-bold">基本面研究</span> · 最后回复：2 天前
-                                </div>
-                            </div>
-                            <div class="ms-3 topic-stats">
-                                <div class="fw-bold">9</div>
-                                <small class="text-muted">回复</small>
-                            </div>
-                        </div>
+                        {% endfor %}
                     </div>
                 </div>
                 <div class="card-footer">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <span class="text-muted forum-pagination-info">显示 1-10 条，共 30 条</span>
+                            <span class="text-muted forum-pagination-info">显示 1-{{ latest_topics|length if latest_topics|length < 10 else 10 }} 条，共 {{ latest_topics|length }} 条</span>
                         </div>
                         <nav>
                             <ul class="pagination pagination-sm forum-pagination">
@@ -361,19 +224,19 @@
                     <ul class="list-group list-group-flush">
                         <li class="list-group-item d-flex justify-content-between align-items-center px-0">
                             主题总数
-                            <span class="badge bg-primary rounded-pill">444</span>
+                            <span class="badge bg-primary rounded-pill">{{ forum_stats.topics }}</span>
                         </li>
                         <li class="list-group-item d-flex justify-content-between align-items-center px-0">
                             回复总数
-                            <span class="badge bg-primary rounded-pill">4,640</span>
+                            <span class="badge bg-primary rounded-pill">{{ forum_stats.replies }}</span>
                         </li>
                         <li class="list-group-item d-flex justify-content-between align-items-center px-0">
                             会员总数
-                            <span class="badge bg-primary rounded-pill">1,256</span>
+                            <span class="badge bg-primary rounded-pill">{{ forum_stats.users }}</span>
                         </li>
                         <li class="list-group-item d-flex justify-content-between align-items-center px-0">
                             最新会员
-                            <span>期货新手</span>
+                            <span>{{ forum_stats.latest_user }}</span>
                         </li>
                     </ul>
                 </div>
@@ -386,30 +249,15 @@
                 </div>
                 <div class="card-body">
                     <div class="d-flex flex-wrap gap-2 justify-content-center">
+                        {% for user in active_users %}
                         <div class="text-center">
-                            <img src="https://via.placeholder.com/30" alt="用户头像" class="avatar-sm mb-1">
-                            <div class="small">交易达人</div>
+                            <div class="small">{{ user.username }}</div>
                         </div>
-                        <div class="text-center">
-                            <img src="https://via.placeholder.com/30" alt="用户头像" class="avatar-sm mb-1">
-                            <div class="small">AI研究者</div>
+                        {% else %}
+                        <div class="text-center text-muted">
+                            暂无活跃用户
                         </div>
-                        <div class="text-center">
-                            <img src="https://via.placeholder.com/30" alt="用户头像" class="avatar-sm mb-1">
-                            <div class="small">期货老手</div>
-                        </div>
-                        <div class="text-center">
-                            <img src="https://via.placeholder.com/30" alt="用户头像" class="avatar-sm mb-1">
-                            <div class="small">市场分析师</div>
-                        </div>
-                        <div class="text-center">
-                            <img src="https://via.placeholder.com/30" alt="用户头像" class="avatar-sm mb-1">
-                            <div class="small">技术派</div>
-                        </div>
-                        <div class="text-center">
-                            <img src="https://via.placeholder.com/30" alt="用户头像" class="avatar-sm mb-1">
-                            <div class="small">基本面研究</div>
-                        </div>
+                        {% endfor %}
                     </div>
                 </div>
             </div>
@@ -441,33 +289,37 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <form>
+                <form id="newTopicForm">
                     <div class="mb-3">
-                        <label for="topicCategory" class="form-label">选择版块</label>
-                        <select class="form-select" id="topicCategory">
-                            <option selected>市场分析</option>
-                            <option>交易策略</option>
-                            <option>新闻解读</option>
-                            <option>新手交流</option>
+                        <label for="topicCategory" class="form-label">选择版块 <span class="text-danger">*</span></label>
+                        <select class="form-select" id="topicCategory" name="category" required>
+                            <option value="market_analysis" selected>市场分析</option>
+                            <option value="trading_strategy">交易策略</option>
+                            <option value="news_analysis">新闻解读</option>
+                            <option value="beginner">新手交流</option>
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label for="topicTitle" class="form-label">主题标题</label>
-                        <input type="text" class="form-control" id="topicTitle" placeholder="请输入主题标题">
+                        <label for="topicTitle" class="form-label">主题标题 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="topicTitle" name="title" placeholder="请输入主题标题（5-50字）" minlength="5" maxlength="50" required>
+                        <div class="form-text">标题应简明扼要，清晰表达主题内容</div>
                     </div>
                     <div class="mb-3">
-                        <label for="topicContent" class="form-label">主题内容</label>
-                        <textarea class="form-control" id="topicContent" rows="6" placeholder="请输入主题内容"></textarea>
+                        <label for="topicContent" class="form-label">主题内容 <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="topicContent" name="content" rows="6" placeholder="请输入主题内容（至少20字）" minlength="20" required></textarea>
+                        <div class="form-text">详细描述您的观点、问题或分享的内容</div>
                     </div>
                     <div class="mb-3">
                         <label for="topicTags" class="form-label">标签 (可选，用逗号分隔)</label>
-                        <input type="text" class="form-control" id="topicTags" placeholder="例如：技术分析,豆粕,交易策略">
+                        <input type="text" class="form-control" id="topicTags" name="topicTags" placeholder="例如：技术分析,豆粕,交易策略">
+                        <div class="form-text">添加相关标签，有助于其他用户找到您的主题</div>
+                        <input type="hidden" id="tagsJson" name="tags" value="[]">
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                <button type="button" class="btn btn-primary">发布主题</button>
+                <button type="button" class="btn btn-primary" id="submitNewTopic">发布主题</button>
             </div>
         </div>
     </div>
@@ -478,52 +330,121 @@
 <!-- 引入分页功能脚本 -->
 <script src="{{ url_for('static', filename='js/pagination.js') }}"></script>
 <script>
-    // 这里可以添加论坛页面特定的JavaScript代码
-    // 例如发帖、回复等功能
-
-    // 添加更多主题卡片用于测试分页功能
+    // 论坛页面特定的JavaScript代码
     document.addEventListener('DOMContentLoaded', function() {
-        const topicContainer = document.querySelector('.topic-list-container');
-        const topicCards = document.querySelectorAll('.topic-card');
+        // 处理发布新主题表单提交
+        const newTopicForm = document.getElementById('newTopicForm');
+        const submitNewTopicBtn = document.getElementById('submitNewTopic');
+        const topicTagsInput = document.getElementById('topicTags');
+        const tagsJsonInput = document.getElementById('tagsJson');
 
-        if (topicContainer && topicCards.length > 0) {
-            // 复制现有的主题卡片，创建更多卡片用于测试
-            for (let i = 0; i < 15; i++) {
-                const randomIndex = Math.floor(Math.random() * topicCards.length);
-                const clonedCard = topicCards[randomIndex].cloneNode(true);
+        // 处理标签输入
+        topicTagsInput.addEventListener('change', function() {
+            const tagsText = this.value.trim();
+            let tagsArray = [];
 
-                // 修改标题，使其不完全相同
-                const titleElement = clonedCard.querySelector('h6');
-                if (titleElement) {
-                    const titleText = titleElement.textContent.trim();
-                    const badgeElements = titleElement.querySelectorAll('.badge');
-                    const linkElement = titleElement.querySelector('a');
-                    let newTitle = '';
+            if (tagsText) {
+                // 将逗号分隔的标签转换为数组
+                tagsArray = tagsText.split(',')
+                    .map(tag => tag.trim())
+                    .filter(tag => tag.length > 0);
 
-                    // 保留所有徽章
-                    badgeElements.forEach(badge => {
-                        newTitle += badge.outerHTML + ' ';
-                    });
-
-                    // 添加修改后的标题文本，保留链接
-                    if (linkElement) {
-                        const titleTextWithoutBadges = linkElement.textContent.trim();
-                        const newLinkText = titleTextWithoutBadges + ` (${i + 1})`;
-                        const newLink = linkElement.cloneNode();
-                        newLink.textContent = newLinkText;
-                        newTitle += newLink.outerHTML;
-                    } else {
-                        const titleTextWithoutBadges = titleText.replace(/\s*<span.*?<\/span>\s*/g, '').trim();
-                        newTitle += titleTextWithoutBadges + ` (${i + 1})`;
-                    }
-
-                    titleElement.innerHTML = newTitle;
+                // 限制最多5个标签
+                if (tagsArray.length > 5) {
+                    tagsArray = tagsArray.slice(0, 5);
+                    this.value = tagsArray.join(', ');
+                    alert('最多只能添加5个标签');
                 }
-
-                // 添加到容器
-                topicContainer.appendChild(clonedCard);
             }
-        }
+
+            // 更新隐藏的JSON标签字段
+            tagsJsonInput.value = JSON.stringify(tagsArray);
+        });
+
+        // 处理表单提交
+        submitNewTopicBtn.addEventListener('click', function() {
+            // 验证表单
+            const category = document.getElementById('topicCategory').value;
+            const title = document.getElementById('topicTitle').value.trim();
+            const content = document.getElementById('topicContent').value.trim();
+
+            if (!category) {
+                alert('请选择版块');
+                return;
+            }
+
+            if (!title || title.length < 5) {
+                alert('标题不能为空，且至少5个字符');
+                return;
+            }
+
+            if (!content || content.length < 20) {
+                alert('内容不能为空，且至少20个字符');
+                return;
+            }
+
+            // 处理标签
+            const tagsText = topicTagsInput.value.trim();
+            let tagsArray = [];
+
+            if (tagsText) {
+                tagsArray = tagsText.split(',')
+                    .map(tag => tag.trim())
+                    .filter(tag => tag.length > 0);
+            }
+
+            tagsJsonInput.value = JSON.stringify(tagsArray);
+
+            // 创建FormData对象
+            const formData = new FormData(newTopicForm);
+
+            // 显示加载状态
+            submitNewTopicBtn.disabled = true;
+            submitNewTopicBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 发布中...';
+
+            // 发送AJAX请求
+            fetch('{{ url_for("forum.create_topic") }}', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                // 恢复按钮状态
+                submitNewTopicBtn.disabled = false;
+                submitNewTopicBtn.innerHTML = '发布主题';
+
+                if (data.success) {
+                    // 显示成功消息
+                    alert(data.message);
+
+                    // 关闭模态框
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('newTopicModal'));
+                    modal.hide();
+
+                    // 跳转到新主题页面或刷新当前页面
+                    if (data.topic_id) {
+                        window.location.href = '{{ url_for("forum.topic", topic_id=0) }}'.replace('0', data.topic_id);
+                    } else {
+                        window.location.reload();
+                    }
+                } else {
+                    // 显示错误消息
+                    alert(data.message || '发布失败，请稍后重试');
+                }
+            })
+            .catch(error => {
+                // 恢复按钮状态
+                submitNewTopicBtn.disabled = false;
+                submitNewTopicBtn.innerHTML = '发布主题';
+
+                // 显示错误消息
+                alert('发布失败，请稍后重试');
+                console.error('Error:', error);
+            });
+        });
+
+        // 初始化分页功能
+        initForumPagination();
     });
 </script>
 {% endblock %}

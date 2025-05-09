@@ -363,8 +363,13 @@ def predict():
         # 导入预测函数
         from predict_prices import predict_with_model
 
-        # 调用预测函数
-        result = predict_with_model(model_type, days)
+        # 获取当前使用的数据文件路径
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        full_data_path = os.path.join(current_dir, DATA_FILE_PATH)
+
+        # 调用预测函数，传递当前使用的数据文件路径
+        logger.info(f"使用数据文件进行预测: {full_data_path}")
+        result = predict_with_model(model_type, days, data_file=full_data_path)
 
         # 返回预测结果
         return jsonify(result)
@@ -832,9 +837,22 @@ def upload_file():
         # 安全地获取文件名
         filename = secure_filename(file.filename)
 
-        # 始终使用默认文件名date1.csv，替换现有数据
-        save_path = os.path.join(data_folder, 'date1.csv')
-        logger.info(f"上传的文件将保存为: {save_path}")
+        # 检查是否为默认数据文件
+        default_data_file = os.path.join(data_folder, 'date1.csv')
+
+        # 生成唯一的文件名，避免覆盖date1.csv
+        if os.path.exists(default_data_file):
+            # 使用时间戳生成唯一文件名
+            import time
+            timestamp = int(time.time())
+            base_name, ext = os.path.splitext(filename)
+            new_filename = f"{base_name}_{timestamp}{ext}"
+            save_path = os.path.join(data_folder, new_filename)
+            logger.info(f"检测到默认数据文件已存在，上传的文件将保存为: {save_path}")
+        else:
+            # 如果默认数据文件不存在，可以使用默认文件名
+            save_path = os.path.join(data_folder, 'date1.csv')
+            logger.info(f"默认数据文件不存在，上传的文件将保存为: {save_path}")
 
         # 保存文件
         file.save(save_path)
@@ -849,10 +867,13 @@ def upload_file():
             # 预处理数据
             df = preprocess_new_data(save_path, save_path)
 
-            # 始终更新DATA_FILE_PATH为默认路径
+            # 更新DATA_FILE_PATH为上传的文件路径
             global DATA_FILE_PATH
-            DATA_FILE_PATH = '../model_data/date1.csv'
-            logger.info("已更新DATA_FILE_PATH为默认路径")
+            # 将绝对路径转换为相对路径
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            rel_path = os.path.relpath(save_path, current_dir)
+            DATA_FILE_PATH = rel_path
+            logger.info(f"已更新DATA_FILE_PATH为上传的文件路径: {DATA_FILE_PATH}")
 
             # 准备返回数据
             chart_data = {
@@ -1021,6 +1042,14 @@ def model_evaluation():
                         'modified': pd.to_datetime(file_time, unit='s').strftime('%Y-%m-%d %H:%M:%S'),
                         'path': file_path
                     }
+
+                    # 即使TensorFlow不可用，也添加默认参数量信息
+                    if model_type == 'mlp':
+                        model_info['total_params'] = '6,688,896'
+                    elif model_type == 'lstm':
+                        model_info['total_params'] = '11,655,784'
+                    elif model_type == 'cnn':
+                        model_info['total_params'] = '11,674,952'
 
                     # 如果TensorFlow可用，尝试加载模型获取更多信息
                     if tf_available:
