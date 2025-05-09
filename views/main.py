@@ -1,7 +1,17 @@
-from flask import Blueprint, render_template, redirect, url_for, session
+from flask import Blueprint, render_template, redirect, url_for, session, jsonify
+import os
+import pandas as pd
+import logging
+from datetime import datetime
 
+# 设置日志记录
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 bp = Blueprint('main', __name__)
+
+# 数据文件路径 (相对于当前文件)
+DATA_FILE_PATH = '../model_data/date1.csv'
 
 @bp.route('/')
 def index():
@@ -9,4 +19,58 @@ def index():
     if 'user_id' not in session:
         return redirect(url_for('auth.login'))
     return render_template('index.html')
+
+@bp.route('/api/latest-market-data')
+def get_latest_market_data():
+    """API端点：获取最新的市场数据"""
+    try:
+        # 获取数据文件路径
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        full_data_path = os.path.join(current_dir, DATA_FILE_PATH)
+
+        # 检查文件是否存在
+        if not os.path.exists(full_data_path):
+            logger.error(f"数据文件不存在: {full_data_path}")
+            return jsonify({"error": "数据文件不存在"}), 404
+
+        # 读取CSV文件
+        df = pd.read_csv(full_data_path)
+
+        # 确保日期列是datetime类型
+        df['date'] = pd.to_datetime(df['date'])
+
+        # 按日期排序（确保最后一行是最新数据）
+        df = df.sort_values('date', ascending=True)
+
+        # 获取最后一行数据（最新数据）
+        latest_data = df.iloc[-1]
+
+        # 计算涨跌幅
+        if len(df) > 1:
+            previous_close = df.iloc[-2]['close']
+            change_percent = ((latest_data['close'] - previous_close) / previous_close * 100)
+        else:
+            change_percent = 0
+
+        # 格式化日期
+        date_str = latest_data['date'].strftime('%Y-%m-%d')
+
+        # 构建响应数据
+        response_data = {
+            "date": date_str,
+            "open": float(latest_data['open']),
+            "high": float(latest_data['high']),
+            "low": float(latest_data['low']),
+            "close": float(latest_data['close']),
+            "volume": int(latest_data['volume']),
+            "change_percent": float(change_percent)
+        }
+
+        return jsonify(response_data)
+
+    except Exception as e:
+        logger.error(f"获取最新市场数据时出错: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
 

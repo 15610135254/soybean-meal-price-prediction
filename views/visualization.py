@@ -116,7 +116,9 @@ def view_data():
                     'opening_prices': df['open'].tolist() if 'open' in df.columns else [],
                     'high_prices': df['high'].tolist() if 'high' in df.columns else [],
                     'low_prices': df['low'].tolist() if 'low' in df.columns else [],
-                    'volumes': df['volume'].tolist() if 'volume' in df.columns else []
+                    'volumes': df['volume'].tolist() if 'volume' in df.columns else [],
+                    'a_close': df['a_close'].tolist() if 'a_close' in df.columns else [],
+                    'c_close': df['c_close'].tolist() if 'c_close' in df.columns else []
                 }
             else:
                 # 旧数据集格式
@@ -135,7 +137,9 @@ def view_data():
                     'opening_prices': df['开盘价'].tolist() if '开盘价' in df.columns else [],
                     'high_prices': df['最高价'].tolist() if '最高价' in df.columns else [],
                     'low_prices': df['最低价'].tolist() if '最低价' in df.columns else [],
-                    'volumes': df['成交量'].tolist() if '成交量' in df.columns else []
+                    'volumes': df['成交量'].tolist() if '成交量' in df.columns else [],
+                    'a_close': df['a_close'].tolist() if 'a_close' in df.columns else [],
+                    'c_close': df['c_close'].tolist() if 'c_close' in df.columns else []
                 }
 
             # 添加所有技术指标数据（如果存在）
@@ -488,7 +492,9 @@ def edit_data():
                 'opening_prices': df['open'].tolist() if 'open' in df.columns else [],
                 'high_prices': df['high'].tolist() if 'high' in df.columns else [],
                 'low_prices': df['low'].tolist() if 'low' in df.columns else [],
-                'volumes': df['volume'].tolist() if 'volume' in df.columns else []
+                'volumes': df['volume'].tolist() if 'volume' in df.columns else [],
+                'a_close': df['a_close'].tolist() if 'a_close' in df.columns else [],
+                'c_close': df['c_close'].tolist() if 'c_close' in df.columns else []
             }
 
             # 添加所有技术指标数据（如果存在）
@@ -542,7 +548,9 @@ def edit_data():
                 'opening_prices': df['开盘价'].tolist() if '开盘价' in df.columns else [],
                 'high_prices': df['最高价'].tolist() if '最高价' in df.columns else [],
                 'low_prices': df['最低价'].tolist() if '最低价' in df.columns else [],
-                'volumes': df['成交量'].tolist() if '成交量' in df.columns else []
+                'volumes': df['成交量'].tolist() if '成交量' in df.columns else [],
+                'a_close': df['a_close'].tolist() if 'a_close' in df.columns else [],
+                'c_close': df['c_close'].tolist() if 'c_close' in df.columns else []
             }
 
             # 添加所有技术指标数据（如果存在）
@@ -1332,6 +1340,227 @@ def get_model_architecture_description(model_type):
         """
     else:
         return "未找到模型架构描述"
+
+@bp.route('/api/add-data', methods=['POST'])
+@admin_required
+def add_data():
+    """API端点：添加单条数据（仅管理员）"""
+    try:
+        # 获取请求数据
+        data = request.json
+        if not data:
+            return jsonify({"success": False, "error": "没有提供数据"}), 400
+
+        # 获取添加的数据
+        date = data.get('date')
+        open_price = data.get('open')
+        high_price = data.get('high')
+        low_price = data.get('low')
+        close_price = data.get('close')
+        volume = data.get('volume')
+
+        # 验证必要的字段
+        if not date or not close_price:
+            return jsonify({"success": False, "error": "日期和收盘价是必填字段"}), 400
+
+        # 获取数据文件路径
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        full_data_path = os.path.join(current_dir, DATA_FILE_PATH)
+
+        # 加载数据文件
+        if not os.path.exists(full_data_path):
+            return jsonify({"success": False, "error": "数据文件不存在"}), 404
+
+        # 读取CSV文件
+        df = pd.read_csv(full_data_path)
+
+        # 检查数据集的列名格式
+        if 'date' in df.columns and '日期' not in df.columns:
+            # 新数据集格式
+            # 确保日期列是datetime类型
+            df['date'] = pd.to_datetime(df['date'])
+
+            # 转换添加的日期为datetime对象
+            date_obj = pd.to_datetime(date)
+
+            # 检查日期是否已存在
+            if (df['date'] == date_obj).any():
+                return jsonify({"success": False, "error": f"日期 {date} 的数据已存在"}), 400
+
+            # 创建新行数据
+            new_row = {
+                'date': date_obj,
+                'open': float(open_price) if open_price is not None else None,
+                'high': float(high_price) if high_price is not None else None,
+                'low': float(low_price) if low_price is not None else None,
+                'close': float(close_price),
+                'volume': int(volume) if volume is not None else None
+            }
+
+            # 添加新行
+            df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+
+            # 确保数据按日期从早到晚排序（升序）
+            df = df.sort_values('date', ascending=True)
+            logger.info("已对数据按日期升序排序（从早到晚）")
+        else:
+            # 旧数据集格式
+            # 确保日期列是datetime类型
+            df['日期'] = pd.to_datetime(df['日期'])
+
+            # 转换添加的日期为datetime对象
+            date_obj = pd.to_datetime(date)
+
+            # 检查日期是否已存在
+            if (df['日期'] == date_obj).any():
+                return jsonify({"success": False, "error": f"日期 {date} 的数据已存在"}), 400
+
+            # 创建新行数据
+            new_row = {
+                '日期': date_obj,
+                '开盘价': float(open_price) if open_price is not None else None,
+                '最高价': float(high_price) if high_price is not None else None,
+                '最低价': float(low_price) if low_price is not None else None,
+                '收盘价': float(close_price),
+                '成交量': int(volume) if volume is not None else None
+            }
+
+            # 添加新行
+            df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+
+            # 确保数据按日期从早到晚排序（升序）
+            df = df.sort_values('日期', ascending=True)
+            logger.info("已对数据按日期升序排序（从早到晚）")
+
+        # 保存更新后的数据到原文件，不更换数据源
+        df.to_csv(full_data_path, index=False)
+
+        # 预处理数据，但不更改DATA_FILE_PATH
+        sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+        # 检查数据集的列名格式
+        if 'date' in df.columns and '日期' not in df.columns:
+            # 新数据集格式
+            from data.preprocess_new_data import preprocess_new_data
+            df = preprocess_new_data(full_data_path, full_data_path)
+
+            # 准备返回数据
+            chart_data = {
+                'labels': df['date'].dt.strftime('%Y-%m-%d').tolist(),
+                'closing_prices': df['close'].tolist(),
+                'opening_prices': df['open'].tolist() if 'open' in df.columns else [],
+                'high_prices': df['high'].tolist() if 'high' in df.columns else [],
+                'low_prices': df['low'].tolist() if 'low' in df.columns else [],
+                'volumes': df['volume'].tolist() if 'volume' in df.columns else []
+            }
+
+            # 添加所有技术指标数据（如果存在）
+            # 移动平均线
+            for column in ['MA_5', 'MA_10', 'MA_20', 'MA_30', 'MA_60']:
+                if column in df.columns:
+                    chart_data[column.lower().replace('_', '')] = df[column].tolist()
+
+            # RSI指标
+            if 'RSI_14' in df.columns:
+                chart_data['rsi'] = df['RSI_14'].tolist()
+
+            # MACD指标
+            if 'MACD' in df.columns:
+                chart_data['MACD'] = df['MACD'].tolist()
+
+            # 波动率指标
+            if 'HV_20' in df.columns:
+                chart_data['hv20'] = df['HV_20'].tolist()
+
+            # ATR指标
+            if 'ATR_14' in df.columns:
+                chart_data['atr14'] = df['ATR_14'].tolist()
+
+            # OBV指标
+            if 'OBV' in df.columns:
+                chart_data['obv'] = df['OBV'].tolist()
+
+            # 价格变动和日内波幅
+            if 'price_change' in df.columns:
+                chart_data['price_change'] = df['price_change'].tolist()
+            if 'daily_range' in df.columns:
+                chart_data['daily_range'] = df['daily_range'].tolist()
+
+            # 涨跌幅
+            if 'price_change_pct' in df.columns:
+                chart_data['price_change_pct'] = df['price_change_pct'].tolist()
+
+            # 成交量变化率
+            if 'volume_change_pct' in df.columns:
+                chart_data['volume_change_pct'] = df['volume_change_pct'].tolist()
+        else:
+            # 旧数据集格式
+            from data.preprocess_data import preprocess_data
+            df = preprocess_data(full_data_path, full_data_path)
+
+            # 准备返回数据
+            chart_data = {
+                'labels': df['日期'].dt.strftime('%Y-%m-%d').tolist(),
+                'closing_prices': df['收盘价'].tolist(),
+                'opening_prices': df['开盘价'].tolist() if '开盘价' in df.columns else [],
+                'high_prices': df['最高价'].tolist() if '最高价' in df.columns else [],
+                'low_prices': df['最低价'].tolist() if '最低价' in df.columns else [],
+                'volumes': df['成交量'].tolist() if '成交量' in df.columns else []
+            }
+
+            # 添加所有技术指标数据（如果存在）
+            # 移动平均线
+            for column in ['MA5', 'MA10', 'MA20', 'MA30', 'MA60', 'EMA12', 'EMA26']:
+                if column in df.columns:
+                    chart_data[column.lower()] = df[column].tolist()
+
+            # RSI指标
+            if 'RSI' in df.columns:
+                chart_data['rsi'] = df['RSI'].tolist()
+
+            # MACD指标
+            for column in ['MACD', 'MACD_Signal', 'MACD_Hist']:
+                if column in df.columns:
+                    chart_data[column] = df[column].tolist()
+
+            # KDJ指标
+            for column in ['RSV', 'K', 'D', 'J']:
+                if column in df.columns:
+                    chart_data[column] = df[column].tolist()
+
+            # 布林带指标
+            for column in ['中轨线', '标准差', '上轨线', '下轨线']:
+                if column in df.columns:
+                    chart_data[column] = df[column].tolist()
+
+            # 成交量指标
+            for column in ['成交量变化率', '相对成交量', '成交量MA5', '成交量MA10']:
+                if column in df.columns:
+                    chart_data[column] = df[column].tolist()
+
+            # 其他技术指标和特征
+            for column in ['涨跌幅', '日内波幅', '价格变动', '突破MA5', '突破MA10', '突破MA20', '金叉', '死叉']:
+                if column in df.columns:
+                    chart_data[column] = df[column].tolist()
+
+        # 返回成功响应
+        response_data = {
+            "success": True,
+            "message": "数据添加成功",
+            "chart_data": chart_data,
+            "rows": len(df)
+        }
+
+        return current_app.response_class(
+            json.dumps(response_data, cls=NpEncoder),
+            mimetype='application/json'
+        )
+
+    except Exception as e:
+        logger.error(f"添加数据时出错: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
 
 @bp.route('/api/run-evaluation', methods=['POST'])
 @admin_required

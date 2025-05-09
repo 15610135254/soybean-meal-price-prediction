@@ -32,6 +32,10 @@
             font-size: 1.2rem;
             padding: 8px 15px;
         }
+        /* 表格行样式 - 已移除悬停和点击效果 */
+        .table-row-hover {
+            transition: all 0.2s ease;
+        }
     </style>
 {% endblock %}
 
@@ -231,6 +235,34 @@
         </div>
     </div>
 
+    <!-- 最高价和最低价、大豆价格和玉米价格 -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-graph-up"></i> 最高价和最低价</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container" style="height: 250px;">
+                        <canvas id="highLowChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-graph-up"></i> 大豆价格和玉米价格</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container" style="height: 250px;">
+                        <canvas id="acCloseChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 数据表格和其他指标 -->
     <div class="row">
         <div class="col-md-8">
@@ -239,6 +271,31 @@
                     <h5 class="mb-0"><i class="bi bi-table"></i> 历史数据</h5>
                 </div>
                 <div class="card-body">
+                    <!-- 添加时间区间查询表单 -->
+                    <div class="row mb-3">
+                        <div class="col-md-10">
+                            <div class="row g-2">
+                                <div class="col-md-5">
+                                    <div class="input-group">
+                                        <span class="input-group-text">开始日期</span>
+                                        <input type="date" class="form-control" id="startDate">
+                                    </div>
+                                </div>
+                                <div class="col-md-5">
+                                    <div class="input-group">
+                                        <span class="input-group-text">结束日期</span>
+                                        <input type="date" class="form-control" id="endDate">
+                                    </div>
+                                </div>
+                                <div class="col-md-2">
+                                    <button class="btn btn-primary w-100" id="queryDateRangeBtn">查询</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <button class="btn btn-outline-secondary w-100" id="resetDateRangeBtn">重置</button>
+                        </div>
+                    </div>
                     <div class="table-responsive">
                         <table class="table table-striped table-hover" id="dataTable">
                             <thead>
@@ -259,7 +316,7 @@
                     </div>
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <span class="text-muted">显示 1-5 条，共 120 条</span>
+                            <span class="text-muted" id="dataCountDisplay">只显示前5条</span>
                         </div>
                         <nav>
                             <ul class="pagination pagination-sm">
@@ -284,6 +341,12 @@
                         {% if session.user_role == 'admin' %}
                         <button class="btn btn-outline-primary mb-3" type="button" data-bs-toggle="modal" data-bs-target="#uploadDataModal">
                             <i class="bi bi-upload"></i> 上传新数据
+                        </button>
+                        <button class="btn btn-outline-primary mb-3" type="button" data-bs-toggle="modal" data-bs-target="#appendDataModal">
+                            <i class="bi bi-file-earmark-plus"></i> 增加数据文件
+                        </button>
+                        <button class="btn btn-outline-primary mb-3" type="button" data-bs-toggle="modal" data-bs-target="#addDataModal">
+                            <i class="bi bi-plus-circle"></i> 添加数据
                         </button>
                         <button class="btn btn-outline-primary mb-3" type="button" data-bs-toggle="modal" data-bs-target="#editDataModal">
                             <i class="bi bi-pencil"></i> 编辑数据
@@ -331,6 +394,21 @@
                         <label for="dataFile" class="form-label">选择CSV文件</label>
                         <input class="form-control" type="file" id="dataFile" name="file" accept=".csv" required>
                         <div class="form-text">请上传包含日期、开盘价、最高价、最低价、收盘价、成交量等列的CSV文件</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">上传方式</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="uploadMode" id="replaceMode" value="replace" checked>
+                            <label class="form-check-label" for="replaceMode">
+                                替换现有数据
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="uploadMode" id="appendMode" value="append">
+                            <label class="form-check-label" for="appendMode">
+                                添加到现有数据
+                            </label>
+                        </div>
                     </div>
                     <div class="alert alert-info">
                         <small>上传后系统将自动处理数据，添加技术指标，并使用新上传的数据进行趋势图显示和预测分析。</small>
@@ -395,6 +473,87 @@
     </div>
 </div>
 
+<!-- 增加数据模态框 -->
+<div class="modal fade" id="appendDataModal" tabindex="-1" aria-labelledby="appendDataModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="appendDataModalLabel">增加数据</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="appendDataForm" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="appendDataFile" class="form-label">选择CSV文件</label>
+                        <input class="form-control" type="file" id="appendDataFile" name="file" accept=".csv" required>
+                        <div class="form-text">请上传包含日期、开盘价、最高价、最低价、收盘价、成交量等列的CSV文件</div>
+                    </div>
+                    <div class="alert alert-info">
+                        <small>上传后系统将自动处理数据，并将新数据添加到现有数据集中。添加的数据将用于趋势图显示和预测分析。</small>
+                    </div>
+                    <div id="appendStatus" class="d-none">
+                        <div class="progress mb-3">
+                            <div id="appendProgressBar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                        </div>
+                        <p id="appendStatusText" class="text-center"></p>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="appendDataBtn">增加</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 添加数据模态框 -->
+<div class="modal fade" id="addDataModal" tabindex="-1" aria-labelledby="addDataModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addDataModalLabel">添加数据</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form>
+                    <div class="mb-3">
+                        <label for="addDate" class="form-label">日期</label>
+                        <input type="date" class="form-control" id="addDate" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="addOpen" class="form-label">开盘价</label>
+                        <input type="number" class="form-control" id="addOpen" step="0.01">
+                    </div>
+                    <div class="mb-3">
+                        <label for="addHigh" class="form-label">最高价</label>
+                        <input type="number" class="form-control" id="addHigh" step="0.01">
+                    </div>
+                    <div class="mb-3">
+                        <label for="addLow" class="form-label">最低价</label>
+                        <input type="number" class="form-control" id="addLow" step="0.01">
+                    </div>
+                    <div class="mb-3">
+                        <label for="addClose" class="form-label">收盘价</label>
+                        <input type="number" class="form-control" id="addClose" step="0.01" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="addVolume" class="form-label">成交量</label>
+                        <input type="number" class="form-control" id="addVolume">
+                    </div>
+                    <div class="alert alert-info">
+                        <small>添加数据后系统将自动处理，计算技术指标，并更新图表和预测。日期和收盘价为必填项。</small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="saveAddBtn">添加</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- 删除数据模态框 -->
 <div class="modal fade" id="deleteDataModal" tabindex="-1" aria-labelledby="deleteDataModalLabel" aria-hidden="true">
     <div class="modal-dialog">
@@ -439,11 +598,18 @@
     try {
         // 检查 chart_data 是否已经是对象
         const rawData = {{ chart_data | safe }};
-        // console.log("原始数据类型:", typeof rawData);
+        console.log("原始数据类型:", typeof rawData);
 
         // 如果是字符串，则解析为JSON；如果已经是对象，则直接使用
         chartData = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
-        // console.log("加载的图表数据:", chartData);
+        console.log("加载的图表数据:", chartData);
+
+        // 输出数据集总数
+        if (chartData && chartData.labels) {
+            console.log("数据集总条数:", chartData.labels.length);
+        } else {
+            console.warn("无法获取数据集总条数，chartData.labels不存在");
+        }
 
         // 检查数据是否有效
         if (chartData && chartData.labels && chartData.closing_prices) {
@@ -739,6 +905,44 @@
     // 调用初始预测加载函数
     loadInitialPrediction();
 
+    // 初始化数据表格，确保显示正确的数据集总数
+    if (chartData && chartData.labels && chartData.labels.length > 0) {
+        console.log("初始化数据表格，数据集总数:", chartData.labels.length);
+
+        // 延迟执行，确保DOM已经完全加载
+        setTimeout(() => {
+            // 调用更新表格函数
+            updateDataTable(chartData);
+
+            // 强制更新显示文本
+            const countDisplay = document.getElementById('dataCountDisplay');
+            if (countDisplay) {
+                console.log("强制更新显示文本");
+                countDisplay.textContent = `只显示前5条，共 ${chartData.labels.length} 条`;
+            } else {
+                console.warn("找不到#dataCountDisplay元素，无法强制更新显示文本");
+
+                // 尝试查找所有可能的元素
+                const allTextMuted = document.querySelectorAll('.text-muted');
+                console.log("找到的.text-muted元素数量:", allTextMuted.length);
+
+                if (allTextMuted.length > 0) {
+                    // 遍历所有.text-muted元素，找到显示数据条数的那个
+                    for (let i = 0; i < allTextMuted.length; i++) {
+                        const text = allTextMuted[i].textContent;
+                        if (text.includes('只显示前') || text.includes('条')) {
+                            console.log("找到匹配的.text-muted元素:", text);
+                            allTextMuted[i].textContent = `只显示前5条，共 ${chartData.labels.length} 条`;
+                            break;
+                        }
+                    }
+                }
+            }
+        }, 500);
+    } else {
+        console.warn("无法初始化数据表格，数据不完整");
+    }
+
     // 根据时间范围过滤数据
     function filterDataByTimeRange(days) {
         /* console.log("开始过滤数据，当前完整数据集信息:", {
@@ -1013,22 +1217,41 @@
 
     // 更新数据表格
     function updateDataTable(data) {
+        console.log("updateDataTable被调用，数据:", data);
+
         // 只有当有足够的数据时才更新表格
-        if (!data || !data.labels || data.labels.length < 5) return;
+        if (!data || !data.labels) {
+            console.warn("数据无效，无法更新表格");
+            return;
+        }
+
+        if (data.labels.length < 1) {
+            console.warn("数据集为空，无法更新表格");
+            return;
+        }
 
         const tableBody = document.querySelector('.table tbody');
-        if (!tableBody) return;
+        if (!tableBody) {
+            console.warn("找不到表格tbody元素");
+            return;
+        }
 
         // 清空表格
         tableBody.innerHTML = '';
 
-        // 获取最近的5条数据
+        // 获取最近的5条数据（或者所有数据，如果少于5条）
         const lastIndex = data.labels.length - 1;
         const startIndex = Math.max(0, lastIndex - 4);
+
+        console.log("表格数据范围:", startIndex, "至", lastIndex, "，总条数:", data.labels.length);
 
         // 添加数据行
         for (let i = lastIndex; i >= startIndex; i--) {
             const row = document.createElement('tr');
+
+            // 不再添加可点击的样式
+            // 保留基本样式类
+            row.classList.add('table-row-hover');
 
             // 计算涨跌幅
             const changePercent = i > 0
@@ -1053,10 +1276,30 @@
         }
 
         // 更新显示的记录数
-        const countDisplay = document.querySelector('.text-muted');
+        const countDisplay = document.getElementById('dataCountDisplay');
         if (countDisplay) {
-            countDisplay.textContent = `显示 ${startIndex+1}-${lastIndex+1} 条，共 ${data.labels.length} 条`;
+            // 显示"只显示前5条，共X条"格式
+            const displayCount = lastIndex - startIndex + 1;
+            const totalCount = data.labels.length;
+
+            console.log("更新显示文本:", `只显示前${displayCount}条，共 ${totalCount} 条`);
+            countDisplay.textContent = `只显示前${displayCount}条，共 ${totalCount} 条`;
+        } else {
+            console.warn("找不到#dataCountDisplay元素，尝试使用.text-muted选择器");
+
+            // 尝试使用类选择器
+            const textMutedElement = document.querySelector('.text-muted');
+            if (textMutedElement) {
+                const displayCount = lastIndex - startIndex + 1;
+                const totalCount = data.labels.length;
+                textMutedElement.textContent = `只显示前${displayCount}条，共 ${totalCount} 条`;
+            } else {
+                console.warn("找不到.text-muted元素，无法更新显示文本");
+            }
         }
+
+        // 为表格行添加点击事件处理程序
+        addRowClickHandlers();
     }
 
     // 添加按钮事件监听器
@@ -1431,6 +1674,42 @@
             );
             obvChart.update();
         }
+
+        // 更新最高价和最低价图表
+        const highLowChart = Chart.getChart(document.getElementById('highLowChart'));
+        if (highLowChart && chartData && chartData.high_prices && chartData.low_prices) {
+            highLowChart.data.labels = filteredData.filteredLabels;
+
+            // 更新最高价数据
+            highLowChart.data.datasets[0].data = chartData.high_prices.slice(
+                Math.max(0, chartData.high_prices.length - filteredData.filteredLabels.length)
+            );
+
+            // 更新最低价数据
+            highLowChart.data.datasets[1].data = chartData.low_prices.slice(
+                Math.max(0, chartData.low_prices.length - filteredData.filteredLabels.length)
+            );
+
+            highLowChart.update();
+        }
+
+        // 更新大豆价格和玉米价格图表
+        const acCloseChart = Chart.getChart(document.getElementById('acCloseChart'));
+        if (acCloseChart && chartData && chartData.a_close && chartData.c_close) {
+            acCloseChart.data.labels = filteredData.filteredLabels;
+
+            // 更新大豆价格数据
+            acCloseChart.data.datasets[0].data = chartData.a_close.slice(
+                Math.max(0, chartData.a_close.length - filteredData.filteredLabels.length)
+            );
+
+            // 更新玉米价格数据
+            acCloseChart.data.datasets[1].data = chartData.c_close.slice(
+                Math.max(0, chartData.c_close.length - filteredData.filteredLabels.length)
+            );
+
+            acCloseChart.update();
+        }
     }
 
     // 预测天数固定为1天
@@ -1696,6 +1975,142 @@
         });
     }
 
+    // 创建最高价和最低价图表
+    if (chartData && chartData.high_prices && chartData.low_prices) {
+        const highLowCtx = document.getElementById('highLowChart').getContext('2d');
+        const highLowChart = new Chart(highLowCtx, {
+            type: 'line',
+            data: {
+                labels: initialFilteredData.filteredLabels,
+                datasets: [
+                    {
+                        label: '最高价',
+                        data: chartData.high_prices.slice(Math.max(0, chartData.high_prices.length - initialFilteredData.filteredLabels.length)),
+                        borderColor: 'rgb(255, 99, 132)',
+                        backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.1,
+                        fill: false
+                    },
+                    {
+                        label: '最低价',
+                        data: chartData.low_prices.slice(Math.max(0, chartData.low_prices.length - initialFilteredData.filteredLabels.length)),
+                        borderColor: 'rgb(75, 192, 192)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.1,
+                        fill: false
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    title: {
+                        display: true,
+                        text: '最高价和最低价'
+                    }
+                },
+                scales: {
+                    x: {
+                        display: true,
+                        grid: {
+                            display: false
+                        }
+                    },
+                    y: {
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // 创建大豆价格和玉米价格图表
+    if (chartData && chartData.a_close && chartData.c_close) {
+        const acCloseCtx = document.getElementById('acCloseChart').getContext('2d');
+        const acCloseChart = new Chart(acCloseCtx, {
+            type: 'line',
+            data: {
+                labels: initialFilteredData.filteredLabels,
+                datasets: [
+                    {
+                        label: '大豆价格',
+                        data: chartData.a_close.slice(Math.max(0, chartData.a_close.length - initialFilteredData.filteredLabels.length)),
+                        borderColor: 'rgb(255, 159, 64)',
+                        backgroundColor: 'rgba(255, 159, 64, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.1,
+                        fill: false,
+                        yAxisID: 'y'
+                    },
+                    {
+                        label: '玉米价格',
+                        data: chartData.c_close.slice(Math.max(0, chartData.c_close.length - initialFilteredData.filteredLabels.length)),
+                        borderColor: 'rgb(54, 162, 235)',
+                        backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.1,
+                        fill: false,
+                        yAxisID: 'y1'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    title: {
+                        display: true,
+                        text: '大豆价格和玉米价格'
+                    }
+                },
+                scales: {
+                    x: {
+                        display: true,
+                        grid: {
+                            display: false
+                        }
+                    },
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        title: {
+                            display: true,
+                            text: '大豆价格'
+                        },
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        }
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        title: {
+                            display: true,
+                            text: '玉米价格'
+                        },
+                        grid: {
+                            drawOnChartArea: false
+                        }
+                    }
+                }
+            }
+        });
+    }
 
 
     // 文件上传功能
@@ -1717,9 +2132,13 @@
             return;
         }
 
+        // 获取上传模式
+        const uploadMode = document.querySelector('input[name="uploadMode"]:checked').value;
+
         // 创建FormData对象
         const formData = new FormData();
         formData.append('file', file);
+        formData.append('mode', uploadMode);
 
         // 显示上传状态
         const uploadStatus = document.getElementById('uploadStatus');
@@ -1938,39 +2357,10 @@
     // 编辑数据功能
     let currentEditDate = null;
 
-    // 为表格中的行添加点击事件，打开编辑模态框
+    // 为表格中的行添加点击事件（已禁用）
     function addRowClickHandlers() {
-        const tableRows = document.querySelectorAll('#dataTable tbody tr');
-        tableRows.forEach(row => {
-            row.addEventListener('click', function() {
-                // 获取行中的数据
-                const cells = row.querySelectorAll('td');
-                if (cells.length >= 6) {
-                    // 获取日期和价格数据
-                    const date = cells[0].textContent;
-                    const open = cells[1].textContent ? parseFloat(cells[1].textContent.replace(/,/g, '')) : '';
-                    const high = cells[2].textContent ? parseFloat(cells[2].textContent.replace(/,/g, '')) : '';
-                    const low = cells[3].textContent ? parseFloat(cells[3].textContent.replace(/,/g, '')) : '';
-                    const close = cells[4].textContent ? parseFloat(cells[4].textContent.replace(/,/g, '')) : '';
-                    const volume = cells[5].textContent ? parseInt(cells[5].textContent.replace(/,/g, '')) : '';
-
-                    // 填充编辑表单
-                    document.getElementById('editDate').value = date;
-                    document.getElementById('editOpen').value = open;
-                    document.getElementById('editHigh').value = high;
-                    document.getElementById('editLow').value = low;
-                    document.getElementById('editClose').value = close;
-                    document.getElementById('editVolume').value = volume;
-
-                    // 保存当前编辑的日期
-                    currentEditDate = date;
-
-                    // 打开编辑模态框
-                    const editModal = new bootstrap.Modal(document.getElementById('editDataModal'));
-                    editModal.show();
-                }
-            });
-        });
+        // 空函数，不再为表格行添加点击事件
+        // 根据需求，历史数据中点击不再有操作
     }
 
     // 保存编辑按钮点击事件
@@ -2207,7 +2597,7 @@
     });
 
     // 更新数据表格函数
-    function updateDataTable(chartData) {
+    function updateDataTable(chartData, startDate = null, endDate = null) {
         if (!chartData || !chartData.labels || !chartData.closing_prices) {
             // console.error('无法更新数据表格：数据无效');
             return;
@@ -2226,8 +2616,30 @@
         // 每页显示的记录数
         const pageSize = 5;
 
-        // 总记录数
-        const totalRecords = chartData.labels.length;
+        // 根据日期范围过滤数据
+        let filteredIndices = [];
+
+        if (startDate && endDate) {
+            // 将字符串日期转换为Date对象进行比较
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+
+            // 过滤符合日期范围的数据索引
+            for (let i = 0; i < chartData.labels.length; i++) {
+                const currentDate = new Date(chartData.labels[i]);
+                if (currentDate >= start && currentDate <= end) {
+                    filteredIndices.push(i);
+                }
+            }
+        } else {
+            // 如果没有指定日期范围，使用所有数据
+            for (let i = 0; i < chartData.labels.length; i++) {
+                filteredIndices.push(i);
+            }
+        }
+
+        // 总记录数（过滤后）
+        const totalRecords = filteredIndices.length;
 
         // 总页数
         const totalPages = Math.ceil(totalRecords / pageSize);
@@ -2240,9 +2652,16 @@
             // 更新显示信息
             const infoElement = document.querySelector('.text-muted');
             if (infoElement) {
-                const startRecord = (currentPage - 1) * pageSize + 1;
-                const endRecord = Math.min(currentPage * pageSize, totalRecords);
-                infoElement.textContent = `显示 ${startRecord}-${endRecord} 条，共 ${totalRecords} 条`;
+                if (currentPage === 1) {
+                    // 如果是第一页，显示"只显示前5条，共X条"
+                    const displayCount = Math.min(pageSize, totalRecords);
+                    infoElement.textContent = `只显示前${displayCount}条，共 ${totalRecords} 条`;
+                } else {
+                    // 其他页面显示页码范围和总条数
+                    const startRecord = (currentPage - 1) * pageSize + 1;
+                    const endRecord = Math.min(currentPage * pageSize, totalRecords);
+                    infoElement.textContent = `${startRecord}-${endRecord}条，共 ${totalRecords} 条`;
+                }
             }
 
             // 更新分页按钮
@@ -2326,52 +2745,60 @@
             for (let i = totalRecords - startIndex - 1; i >= totalRecords - endIndex; i--) {
                 if (i < 0) break;
 
+                // 获取过滤后的数据索引
+                const dataIndex = filteredIndices[i];
+                if (dataIndex === undefined) continue;
+
                 const row = document.createElement('tr');
+
+                // 添加基本样式类，但不添加可点击样式
+                row.classList.add('table-row-hover');
 
                 // 日期
                 const dateCell = document.createElement('td');
-                dateCell.textContent = chartData.labels[i];
+                dateCell.textContent = chartData.labels[dataIndex];
                 row.appendChild(dateCell);
 
                 // 开盘价
                 const openCell = document.createElement('td');
-                if (chartData.opening_prices && chartData.opening_prices[i] !== undefined) {
-                    openCell.textContent = chartData.opening_prices[i].toLocaleString();
+                if (chartData.opening_prices && chartData.opening_prices[dataIndex] !== undefined) {
+                    openCell.textContent = chartData.opening_prices[dataIndex].toLocaleString();
                 }
                 row.appendChild(openCell);
 
                 // 最高价
                 const highCell = document.createElement('td');
-                if (chartData.high_prices && chartData.high_prices[i] !== undefined) {
-                    highCell.textContent = chartData.high_prices[i].toLocaleString();
+                if (chartData.high_prices && chartData.high_prices[dataIndex] !== undefined) {
+                    highCell.textContent = chartData.high_prices[dataIndex].toLocaleString();
                 }
                 row.appendChild(highCell);
 
                 // 最低价
                 const lowCell = document.createElement('td');
-                if (chartData.low_prices && chartData.low_prices[i] !== undefined) {
-                    lowCell.textContent = chartData.low_prices[i].toLocaleString();
+                if (chartData.low_prices && chartData.low_prices[dataIndex] !== undefined) {
+                    lowCell.textContent = chartData.low_prices[dataIndex].toLocaleString();
                 }
                 row.appendChild(lowCell);
 
                 // 收盘价
                 const closeCell = document.createElement('td');
-                if (chartData.closing_prices[i] !== undefined) {
-                    closeCell.textContent = chartData.closing_prices[i].toLocaleString();
+                if (chartData.closing_prices[dataIndex] !== undefined) {
+                    closeCell.textContent = chartData.closing_prices[dataIndex].toLocaleString();
                 }
                 row.appendChild(closeCell);
 
                 // 成交量
                 const volumeCell = document.createElement('td');
-                if (chartData.volumes && chartData.volumes[i] !== undefined) {
-                    volumeCell.textContent = chartData.volumes[i].toLocaleString();
+                if (chartData.volumes && chartData.volumes[dataIndex] !== undefined) {
+                    volumeCell.textContent = chartData.volumes[dataIndex].toLocaleString();
                 }
                 row.appendChild(volumeCell);
 
                 // 涨跌幅
                 const changeCell = document.createElement('td');
-                if (i < totalRecords - 1 && chartData.closing_prices[i] !== undefined && chartData.closing_prices[i+1] !== undefined) {
-                    const change = ((chartData.closing_prices[i] - chartData.closing_prices[i+1]) / chartData.closing_prices[i+1] * 100).toFixed(2);
+                if (dataIndex > 0 && chartData.closing_prices[dataIndex] !== undefined && chartData.closing_prices[dataIndex-1] !== undefined) {
+                    // 标准涨跌幅计算公式：(当日收盘价 - 前一日收盘价) / 前一日收盘价 × 100%
+                    const change = ((chartData.closing_prices[dataIndex] - chartData.closing_prices[dataIndex-1]) / chartData.closing_prices[dataIndex-1] * 100).toFixed(2);
                     if (change > 0) {
                         changeCell.className = 'text-success';
                         changeCell.textContent = `+${change}%`;
@@ -2397,6 +2824,407 @@
         addRowClickHandlers();
     }
 
+    // 增加数据功能
+    document.getElementById('appendDataBtn').addEventListener('click', function() {
+        // 获取表单和文件
+        const form = document.getElementById('appendDataForm');
+        const fileInput = document.getElementById('appendDataFile');
+
+        // 检查是否选择了文件
+        if (!fileInput.files || fileInput.files.length === 0) {
+            alert('请选择要上传的CSV文件');
+            return;
+        }
+
+        // 检查文件类型
+        const file = fileInput.files[0];
+        if (!file.name.toLowerCase().endsWith('.csv')) {
+            alert('请选择CSV格式的文件');
+            return;
+        }
+
+        // 创建FormData对象
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('mode', 'append'); // 指定为添加模式
+
+        // 显示上传状态
+        const appendStatus = document.getElementById('appendStatus');
+        const appendProgressBar = document.getElementById('appendProgressBar');
+        const appendStatusText = document.getElementById('appendStatusText');
+
+        appendStatus.classList.remove('d-none');
+        appendProgressBar.style.width = '0%';
+        appendStatusText.textContent = '准备上传...';
+
+        // 禁用上传按钮
+        const appendBtn = document.getElementById('appendDataBtn');
+        appendBtn.disabled = true;
+
+        // 发送请求
+        fetch('/viz/api/append', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => {
+            appendProgressBar.style.width = '100%';
+
+            if (!response.ok) {
+                if (response.status === 500) {
+                    // 尝试解析错误消息
+                    return response.json().then(data => {
+                        throw new Error(data.error || `上传失败: ${response.status} ${response.statusText}`);
+                    }).catch(err => {
+                        // 如果JSON解析失败，使用原始错误
+                        throw new Error(`上传失败: ${response.status} ${response.statusText}`);
+                    });
+                } else {
+                    throw new Error(`上传失败: ${response.status} ${response.statusText}`);
+                }
+            }
+
+            appendStatusText.textContent = '上传成功，正在处理数据...';
+
+            // 安全地解析JSON
+            return response.text().then(text => {
+                try {
+                    // 尝试解析JSON
+                    return JSON.parse(text);
+                } catch (e) {
+                    throw new Error('服务器返回的数据格式无效');
+                }
+            });
+        })
+        .then(data => {
+            if (data.success) {
+                // 上传成功
+                appendStatusText.textContent = `文件上传成功，共添加 ${data.added_rows} 条记录，总计 ${data.total_rows} 条记录`;
+
+                // 更新图表数据
+                if (data.chart_data) {
+                    // 更新全局数据
+                    chartData = data.chart_data;
+                    labels = data.chart_data.labels;
+                    closingPrices = data.chart_data.closing_prices;
+
+                    // 根据时间范围过滤数据
+                    const timeRange = document.getElementById('timeRangeSelect').value;
+                    const filteredData = filterDataByTimeRange(timeRange);
+
+                    // 更新所有图表
+                    updateAllCharts(filteredData);
+
+                    // 清除预测数据
+                    closingPriceChart.data.datasets[1].data = [];
+                    closingPriceChart.update();
+
+                    // 更新数据表格
+                    updateDataTable(chartData);
+
+                    // 更新价格预测卡片
+                    updatePricePredictionCards();
+
+                    // 自动触发预测
+                    document.getElementById('applyFiltersBtn').click();
+
+                    // 显示成功消息
+                    showNotification('数据添加成功，图表和预测已使用新数据更新', 'success');
+
+                    // 关闭模态框
+                    setTimeout(() => {
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('appendDataModal'));
+                        if (modal) {
+                            modal.hide();
+                        }
+                    }, 1500);
+                }
+            } else {
+                // 上传失败
+                appendStatusText.textContent = data.error || '添加失败';
+                appendProgressBar.classList.remove('bg-primary');
+                appendProgressBar.classList.add('bg-danger');
+                showNotification('添加失败: ' + (data.error || '未知错误'), 'danger');
+            }
+        })
+        .catch(error => {
+            appendStatusText.textContent = `添加失败: ${error.message}`;
+            appendProgressBar.classList.remove('bg-primary');
+            appendProgressBar.classList.add('bg-danger');
+            showNotification('添加失败: ' + error.message, 'danger');
+        })
+        .finally(() => {
+            // 启用上传按钮
+            appendBtn.disabled = false;
+        });
+    });
+
+    // 增加数据功能
+    document.getElementById('appendDataBtn').addEventListener('click', function() {
+        // 获取表单和文件
+        const form = document.getElementById('appendDataForm');
+        const fileInput = document.getElementById('appendDataFile');
+
+        // 检查是否选择了文件
+        if (!fileInput.files || fileInput.files.length === 0) {
+            alert('请选择要上传的CSV文件');
+            return;
+        }
+
+        // 检查文件类型
+        const file = fileInput.files[0];
+        if (!file.name.toLowerCase().endsWith('.csv')) {
+            alert('请选择CSV格式的文件');
+            return;
+        }
+
+        // 创建FormData对象
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('mode', 'append'); // 指定为添加模式
+
+        // 显示上传状态
+        const appendStatus = document.getElementById('appendStatus');
+        const appendProgressBar = document.getElementById('appendProgressBar');
+        const appendStatusText = document.getElementById('appendStatusText');
+
+        appendStatus.classList.remove('d-none');
+        appendProgressBar.style.width = '0%';
+        appendStatusText.textContent = '准备上传...';
+
+        // 禁用上传按钮
+        const appendBtn = document.getElementById('appendDataBtn');
+        appendBtn.disabled = true;
+
+        // 发送请求
+        fetch('/viz/api/append', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => {
+            appendProgressBar.style.width = '100%';
+
+            if (!response.ok) {
+                if (response.status === 500) {
+                    // 尝试解析错误消息
+                    return response.json().then(data => {
+                        throw new Error(data.error || `上传失败: ${response.status} ${response.statusText}`);
+                    }).catch(err => {
+                        // 如果JSON解析失败，使用原始错误
+                        throw new Error(`上传失败: ${response.status} ${response.statusText}`);
+                    });
+                } else {
+                    throw new Error(`上传失败: ${response.status} ${response.statusText}`);
+                }
+            }
+
+            appendStatusText.textContent = '上传成功，正在处理数据...';
+
+            // 安全地解析JSON
+            return response.text().then(text => {
+                try {
+                    // 尝试解析JSON
+                    return JSON.parse(text);
+                } catch (e) {
+                    throw new Error('服务器返回的数据格式无效');
+                }
+            });
+        })
+        .then(data => {
+            if (data.success) {
+                // 上传成功
+                appendStatusText.textContent = `文件上传成功，共添加 ${data.added_rows} 条记录，总计 ${data.total_rows} 条记录`;
+
+                // 更新图表数据
+                if (data.chart_data) {
+                    // 更新全局数据
+                    chartData = data.chart_data;
+                    labels = data.chart_data.labels;
+                    closingPrices = data.chart_data.closing_prices;
+
+                    // 根据时间范围过滤数据
+                    const timeRange = document.getElementById('timeRangeSelect').value;
+                    const filteredData = filterDataByTimeRange(timeRange);
+
+                    // 更新所有图表
+                    updateAllCharts(filteredData);
+
+                    // 清除预测数据
+                    closingPriceChart.data.datasets[1].data = [];
+                    closingPriceChart.update();
+
+                    // 更新数据表格
+                    updateDataTable(chartData);
+
+                    // 更新价格预测卡片
+                    updatePricePredictionCards();
+
+                    // 自动触发预测
+                    document.getElementById('applyFiltersBtn').click();
+
+                    // 显示成功消息
+                    showNotification('数据添加成功，图表和预测已使用新数据更新', 'success');
+
+                    // 关闭模态框
+                    setTimeout(() => {
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('appendDataModal'));
+                        if (modal) {
+                            modal.hide();
+                        }
+                    }, 1500);
+                }
+            } else {
+                // 上传失败
+                appendStatusText.textContent = data.error || '添加失败';
+                appendProgressBar.classList.remove('bg-primary');
+                appendProgressBar.classList.add('bg-danger');
+                showNotification('添加失败: ' + (data.error || '未知错误'), 'danger');
+            }
+        })
+        .catch(error => {
+            appendStatusText.textContent = `添加失败: ${error.message}`;
+            appendProgressBar.classList.remove('bg-primary');
+            appendProgressBar.classList.add('bg-danger');
+            showNotification('添加失败: ' + error.message, 'danger');
+        })
+        .finally(() => {
+            // 启用上传按钮
+            appendBtn.disabled = false;
+        });
+    });
+
+    // 增加数据功能
+    document.getElementById('appendDataBtn').addEventListener('click', function() {
+        // 获取表单和文件
+        const form = document.getElementById('appendDataForm');
+        const fileInput = document.getElementById('appendDataFile');
+
+        // 检查是否选择了文件
+        if (!fileInput.files || fileInput.files.length === 0) {
+            alert('请选择要上传的CSV文件');
+            return;
+        }
+
+        // 检查文件类型
+        const file = fileInput.files[0];
+        if (!file.name.toLowerCase().endsWith('.csv')) {
+            alert('请选择CSV格式的文件');
+            return;
+        }
+
+        // 创建FormData对象
+        const formData = new FormData();
+        formData.append('file', file);
+
+        // 显示上传状态
+        const appendStatus = document.getElementById('appendStatus');
+        const appendProgressBar = document.getElementById('appendProgressBar');
+        const appendStatusText = document.getElementById('appendStatusText');
+
+        appendStatus.classList.remove('d-none');
+        appendProgressBar.style.width = '0%';
+        appendStatusText.textContent = '准备上传...';
+
+        // 禁用上传按钮
+        const appendBtn = document.getElementById('appendDataBtn');
+        appendBtn.disabled = true;
+
+        // 发送请求
+        fetch('/viz/api/append', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => {
+            appendProgressBar.style.width = '100%';
+
+            if (!response.ok) {
+                if (response.status === 500) {
+                    // 尝试解析错误消息
+                    return response.json().then(data => {
+                        throw new Error(data.error || `上传失败: ${response.status} ${response.statusText}`);
+                    }).catch(err => {
+                        // 如果JSON解析失败，使用原始错误
+                        throw new Error(`上传失败: ${response.status} ${response.statusText}`);
+                    });
+                } else {
+                    throw new Error(`上传失败: ${response.status} ${response.statusText}`);
+                }
+            }
+
+            appendStatusText.textContent = '上传成功，正在处理数据...';
+
+            // 安全地解析JSON
+            return response.text().then(text => {
+                try {
+                    // 尝试解析JSON
+                    return JSON.parse(text);
+                } catch (e) {
+                    throw new Error('服务器返回的数据格式无效');
+                }
+            });
+        })
+        .then(data => {
+            if (data.success) {
+                // 上传成功
+                appendStatusText.textContent = `文件上传成功，共添加 ${data.added_rows} 条记录，总计 ${data.total_rows} 条记录`;
+
+                // 更新图表数据
+                if (data.chart_data) {
+                    // 更新全局数据
+                    chartData = data.chart_data;
+                    labels = data.chart_data.labels;
+                    closingPrices = data.chart_data.closing_prices;
+
+                    // 根据时间范围过滤数据
+                    const timeRange = document.getElementById('timeRangeSelect').value;
+                    const filteredData = filterDataByTimeRange(timeRange);
+
+                    // 更新所有图表
+                    updateAllCharts(filteredData);
+
+                    // 清除预测数据
+                    closingPriceChart.data.datasets[1].data = [];
+                    closingPriceChart.update();
+
+                    // 更新数据表格
+                    updateDataTable(chartData);
+
+                    // 更新价格预测卡片
+                    updatePricePredictionCards();
+
+                    // 自动触发预测
+                    document.getElementById('applyFiltersBtn').click();
+
+                    // 显示成功消息
+                    showNotification('数据添加成功，图表和预测已使用新数据更新', 'success');
+
+                    // 关闭模态框
+                    setTimeout(() => {
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('appendDataModal'));
+                        if (modal) {
+                            modal.hide();
+                        }
+                    }, 1500);
+                }
+            } else {
+                // 上传失败
+                appendStatusText.textContent = data.error || '添加失败';
+                appendProgressBar.classList.remove('bg-primary');
+                appendProgressBar.classList.add('bg-danger');
+                showNotification('添加失败: ' + (data.error || '未知错误'), 'danger');
+            }
+        })
+        .catch(error => {
+            appendStatusText.textContent = `添加失败: ${error.message}`;
+            appendProgressBar.classList.remove('bg-primary');
+            appendProgressBar.classList.add('bg-danger');
+            showNotification('添加失败: ' + error.message, 'danger');
+        })
+        .finally(() => {
+            // 启用上传按钮
+            appendBtn.disabled = false;
+        });
+    });
+
     // 在删除模态框显示前设置当前日期
     $('#deleteDataModal').on('show.bs.modal', function () {
         const today = new Date();
@@ -2404,6 +3232,137 @@
         document.getElementById('deleteDate').value = formattedDate;
         // 允许用户修改日期
         document.getElementById('deleteDate').removeAttribute('readonly');
+    });
+
+    // 在添加数据模态框显示前设置当前日期
+    $('#addDataModal').on('show.bs.modal', function () {
+        const today = new Date();
+        const formattedDate = today.toISOString().split('T')[0];
+        document.getElementById('addDate').value = formattedDate;
+    });
+
+    // 添加日期区间查询功能
+    document.getElementById('queryDateRangeBtn').addEventListener('click', function() {
+        const startDate = document.getElementById('startDate').value;
+        const endDate = document.getElementById('endDate').value;
+
+        if (!startDate || !endDate) {
+            showNotification('请选择开始日期和结束日期', 'warning');
+            return;
+        }
+
+        if (new Date(startDate) > new Date(endDate)) {
+            showNotification('开始日期不能晚于结束日期', 'warning');
+            return;
+        }
+
+        // 使用日期范围更新数据表格
+        updateDataTable(chartData, startDate, endDate);
+
+        showNotification(`已显示 ${startDate} 至 ${endDate} 的数据`, 'success');
+    });
+
+    // 重置日期区间查询
+    document.getElementById('resetDateRangeBtn').addEventListener('click', function() {
+        document.getElementById('startDate').value = '';
+        document.getElementById('endDate').value = '';
+
+        // 重置表格，显示所有数据
+        updateDataTable(chartData);
+
+        showNotification('已重置日期筛选，显示全部数据', 'info');
+    });
+
+    // 添加数据按钮点击事件
+    document.getElementById('saveAddBtn').addEventListener('click', async function() {
+        // 获取表单中的数据
+        const date = document.getElementById('addDate').value;
+        const open = document.getElementById('addOpen').value;
+        const high = document.getElementById('addHigh').value;
+        const low = document.getElementById('addLow').value;
+        const close = document.getElementById('addClose').value;
+        const volume = document.getElementById('addVolume').value;
+
+        // 验证数据
+        if (!date || !close) {
+            showNotification('日期和收盘价是必填字段', 'danger');
+            return;
+        }
+
+        try {
+            // 显示加载状态
+            showNotification('正在添加数据...', 'info');
+
+            // 发送添加请求
+            const response = await fetch('/viz/api/add-data', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    date,
+                    open: open ? parseFloat(open) : null,
+                    high: high ? parseFloat(high) : null,
+                    low: low ? parseFloat(low) : null,
+                    close: parseFloat(close),
+                    volume: volume ? parseInt(volume) : null
+                })
+            });
+
+            // 解析响应
+            const data = await response.json();
+
+            if (data.success) {
+                // 关闭模态框
+                const modal = bootstrap.Modal.getInstance(document.getElementById('addDataModal'));
+                if (modal) {
+                    modal.hide();
+                }
+
+                // 更新图表数据
+                if (data.chart_data) {
+                    // 更新全局数据
+                    chartData = data.chart_data;
+                    labels = data.chart_data.labels;
+                    closingPrices = data.chart_data.closing_prices;
+
+                    // 根据时间范围过滤数据
+                    const timeRange = document.getElementById('timeRangeSelect').value;
+                    const filteredData = filterDataByTimeRange(timeRange);
+
+                    // 更新所有图表
+                    updateAllCharts(filteredData);
+
+                    // 清除预测数据
+                    closingPriceChart.data.datasets[1].data = [];
+                    closingPriceChart.update();
+
+                    // 更新数据表格
+                    updateDataTable(chartData);
+
+                    // 更新价格预测卡片
+                    updatePricePredictionCards();
+
+                    // 自动触发预测
+                    document.getElementById('applyFiltersBtn').click();
+
+                    // 显示成功消息
+                    showNotification('数据添加成功，图表和预测已更新', 'success');
+
+                    // 清空表单
+                    document.getElementById('addOpen').value = '';
+                    document.getElementById('addHigh').value = '';
+                    document.getElementById('addLow').value = '';
+                    document.getElementById('addClose').value = '';
+                    document.getElementById('addVolume').value = '';
+                }
+            } else {
+                // 显示错误消息
+                showNotification('添加失败: ' + (data.error || '未知错误'), 'danger');
+            }
+        } catch (error) {
+            showNotification('添加失败: ' + error.message, 'danger');
+        }
     });
 </script>
 {% endblock %}
