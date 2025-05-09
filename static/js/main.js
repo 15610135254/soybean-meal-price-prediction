@@ -1,6 +1,4 @@
-// 全局JavaScript功能
 
-// 页面加载完成后执行
 document.addEventListener('DOMContentLoaded', function() {
     // 激活当前页面的导航链接
     activateCurrentNavLink();

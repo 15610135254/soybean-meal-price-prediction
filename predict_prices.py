@@ -82,31 +82,7 @@ def preprocess_data(df):
         traceback.print_exc()
         return df
 
-# def add_technical_indicators(df):
-#     """添加技术指标"""
-#     try:
-#         # 创建一个副本以避免修改原始数据
-#         df_copy = df.copy()
-#
-#         # 确保使用正确的列名
-#         if 'close' not in df_copy.columns:
-#             logger.error("缺少必要的'close'列，无法添加技术指标")
-#             return df_copy
-#
-#         # 我们不需要添加额外的技术指标，因为数据集中已经包含了所有需要的指标
-#         # 如MA_5, HV_20, ATR_14, RSI_14, OBV, MACD等
-#
-#         # 如果需要，可以在这里添加额外的技术指标
-#
-#         logger.info("为预测数据添加技术指标完成。")
-#         logger.info(f"--- DEBUG: Columns in df at the END of add_technical_indicators: {df_copy.columns.tolist()} ---")
-#         return df_copy
-#
-#     except Exception as e:
-#         logger.error(f"添加技术指标时出错: {e}")
-#         import traceback
-#         traceback.print_exc()
-#         return df
+
 
 def select_features(df):
     """选择模型使用的特征。
@@ -123,10 +99,7 @@ def select_features(df):
         '大豆产量(万吨)', 'GDP'
     ]
 
-    # 检查预定义列表是否确实是16个 (可选的健全性检查)
-    # if len(defined_16_features) != 16:
-    #     logger.error(f"内部错误: 预定义的特征列表长度不是16，而是 {len(defined_16_features)}。请检查代码。")
-    #     return []
+
 
     final_features = []
     missing_features = []
@@ -163,11 +136,7 @@ def select_features(df):
         logger.error(f"未能选择全部16个预定义特征。实际有效特征数量: {len(final_features)}。请检查数据源和上述错误。")
         return [] # 返回空列表表示失败，以便上游处理
 
-    # except Exception as e:
-    #     logger.error(f"选择特征时发生意外错误: {e}")
-    #     import traceback
-    #     traceback.print_exc()
-    #     return []
+
 
 def prepare_sequence_data(df, features, look_back=LOOK_BACK):
     """准备时间序列数据"""
@@ -287,9 +256,7 @@ def predict_with_model(model_type, days=1):
         df = preprocess_data(df)
 
         # 3. 添加技术指标 (特征工程，与训练时一致)
-        # df = add_technical_indicators(df)
-        logger.info(f"--- DEBUG: Columns in df AFTER add_technical_indicators: {df.columns.tolist()} ---")
-        logger.info(f"--- DEBUG: Shape of df AFTER add_technical_indicators: {df.shape} ---")
+        # 数据集中已经包含了所有需要的指标
 
         # 4. 选择最终特征 (包含原始及生成的技术指标)
         features = select_features(df)

@@ -3,7 +3,6 @@ from flask_sqlalchemy import SQLAlchemy
 from config import Config
 import os
 
-# 初始化数据库对象，但不关联特定应用
 db = SQLAlchemy()
 
 def create_app(config_class=Config):
@@ -15,7 +14,7 @@ def create_app(config_class=Config):
     try:
         os.makedirs(app.instance_path)
     except OSError:
-        pass # 文件夹已存在
+        pass
 
     # 初始化数据库
     db.init_app(app)
@@ -38,7 +37,7 @@ def create_app(config_class=Config):
     from views.auth import bp as auth_bp
     app.register_blueprint(auth_bp, url_prefix='/auth')
 
-    # 其他蓝图可以在这里注册
+
 
     # 添加一个简单的根路由，用于测试
     @app.route('/hello')
@@ -50,4 +49,4 @@ def create_app(config_class=Config):
 # 在脚本主入口创建应用实例 (方便直接运行 python app.py 启动开发服务器)
 if __name__ == '__main__':
     app = create_app()
-    app.run(debug=True) # 开启调试模式
+    app.run(debug=True)
