@@ -57,7 +57,7 @@
     <div class="row mb-4">
         <div class="col-md-8">
             <h2><i class="bi bi-newspaper"></i> 豆粕期货新闻资讯</h2>
-            <p class="lead">了解最新的市场动态、政策变化和行业趋势</p>
+            <p class="lead">了解最新的市场动态和行业趋势</p>
         </div>
         <div class="col-md-4 text-end">
             <div class="input-group">
@@ -68,111 +68,63 @@
     </div>
 
     <!-- 头条新闻 -->
+    {% if featured_news %}
     <div class="featured-news">
         <div class="featured-news-content" style="position: relative; background: linear-gradient(to bottom, #f8f9fa, #e9ecef); color: #212529; padding: 30px; border-radius: 5px;">
-            <span class="featured-news-tag">头条</span>
-            <h2><a href="{{ url_for('news.detail', news_id=1) }}" class="text-decoration-none text-dark">中国大豆进口量创新高，豆粕价格承压</a></h2>
-            <p>据海关总署数据显示，今年第一季度中国大豆进口量同比增长15.2%，创历史新高。分析师认为，进口量增加将导致豆粕供应充足，短期内价格可能承压。</p>
-            <div class="d-flex justify-content-between align-items-center">
-                <span class="news-date"><i class="bi bi-calendar3"></i> 2023-05-03</span>
-                <a href="{{ url_for('news.detail', news_id=1) }}" class="btn btn-sm btn-primary">阅读全文</a>
-            </div>
-        </div>
-    </div>
 
-    <!-- 新闻分类标签 -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="d-flex flex-wrap gap-2">
-                {% for category in categories %}
-                <a href="{{ url_for('news.index', category=category.id) }}"
-                   class="btn btn-sm {% if category.active %}btn-primary{% else %}btn-outline-primary{% endif %}">
-                    {{ category.name }}
-                </a>
-                {% endfor %}
+            <h2>
+                {% if featured_news.url %}
+                    <a href="{{ featured_news.url }}" target="_blank" class="text-decoration-none text-dark">{{ featured_news.title }} <i class="bi bi-box-arrow-up-right small"></i></a>
+                {% else %}
+                    <a href="{{ url_for('news.detail', news_id=featured_news.id) }}" class="text-decoration-none text-dark">{{ featured_news.title }}</a>
+                {% endif %}
+            </h2>
+            <p>{{ featured_news.content[:200] }}{% if featured_news.content|length > 200 %}...{% endif %}</p>
+            <div class="d-flex justify-content-between align-items-center">
+                <span class="news-date"><i class="bi bi-calendar3"></i> {{ featured_news.date }}</span>
+                {% if featured_news.url %}
+                    <a href="{{ featured_news.url }}" target="_blank" class="btn btn-sm btn-primary">阅读全文 <i class="bi bi-box-arrow-up-right"></i></a>
+                {% else %}
+                    <a href="{{ url_for('news.detail', news_id=featured_news.id) }}" class="btn btn-sm btn-primary">阅读全文</a>
+                {% endif %}
             </div>
         </div>
     </div>
+    {% endif %}
+
+
 
     <!-- 新闻列表 -->
     <div class="row">
         <div class="col-md-8 news-list-container">
             <!-- 新闻卡片 -->
+            {% for news in news_list %}
             <div class="card news-card">
                 <div class="row g-0">
                     <div class="col-md-12">
                         <div class="card-body">
-                            <span class="badge bg-primary news-tag">市场动态</span>
-                            <h5 class="card-title mt-2"><a href="{{ url_for('news.detail', news_id=2) }}" class="text-decoration-none">全球大豆产量预测报告发布，市场波动加剧</a></h5>
-                            <p class="card-text">美国农业部发布最新全球大豆产量预测报告，预计本年度全球大豆产量将达到3.68亿吨，较上年增长2.5%。报告发布后，芝加哥期货交易所大豆期货价格出现波动。</p>
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <span class="news-date"><i class="bi bi-calendar3"></i> 2023-05-02</span>
-                                    <span class="news-source ms-3"><i class="bi bi-building"></i> 农业经济网</span>
-                                </div>
-                                <a href="{{ url_for('news.detail', news_id=2) }}" class="btn btn-sm btn-outline-primary">阅读全文</a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
 
-            <div class="card news-card">
-                <div class="row g-0">
-                    <div class="col-md-12">
-                        <div class="card-body">
-                            <span class="badge bg-success news-tag">行业分析</span>
-                            <h5 class="card-title mt-2"><a href="{{ url_for('news.detail', news_id=3) }}" class="text-decoration-none">饲料需求增长，豆粕期货价格有望上涨</a></h5>
-                            <p class="card-text">随着畜牧业复苏和养殖规模扩大，国内饲料需求持续增长。分析师预计，下半年豆粕需求将进一步提升，期货价格有望走高。</p>
+                            <h5 class="card-title mt-2">
+                                {% if news.url %}
+                                    <a href="{{ news.url }}" target="_blank" class="text-decoration-none">{{ news.title }} <i class="bi bi-box-arrow-up-right small"></i></a>
+                                {% else %}
+                                    <a href="{{ url_for('news.detail', news_id=news.id) }}" class="text-decoration-none">{{ news.title }}</a>
+                                {% endif %}
+                            </h5>
+                            <p class="card-text">{{ news.content[:150] }}{% if news.content|length > 150 %}...{% endif %}</p>
                             <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <span class="news-date"><i class="bi bi-calendar3"></i> 2023-05-01</span>
-                                    <span class="news-source ms-3"><i class="bi bi-building"></i> 期货日报</span>
-                                </div>
-                                <a href="{{ url_for('news.detail', news_id=3) }}" class="btn btn-sm btn-outline-primary">阅读全文</a>
+                                <span class="news-date"><i class="bi bi-calendar3"></i> {{ news.date }}</span>
+                                {% if news.url %}
+                                    <a href="{{ news.url }}" target="_blank" class="btn btn-sm btn-outline-primary">阅读全文 <i class="bi bi-box-arrow-up-right"></i></a>
+                                {% else %}
+                                    <a href="{{ url_for('news.detail', news_id=news.id) }}" class="btn btn-sm btn-outline-primary">阅读全文</a>
+                                {% endif %}
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-
-            <div class="card news-card">
-                <div class="row g-0">
-                    <div class="col-md-12">
-                        <div class="card-body">
-                            <span class="badge bg-info news-tag">国际资讯</span>
-                            <h5 class="card-title mt-2"><a href="{{ url_for('news.detail', news_id=4) }}" class="text-decoration-none">巴西大豆收获进度超预期，出口量创新高</a></h5>
-                            <p class="card-text">巴西农业部数据显示，截至4月底，巴西大豆收获进度已达95%，高于去年同期的92%。同时，一季度大豆出口量达到2250万吨，同比增长12%，创历史新高。</p>
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <span class="news-date"><i class="bi bi-calendar3"></i> 2023-04-30</span>
-                                    <span class="news-source ms-3"><i class="bi bi-building"></i> 国际商报</span>
-                                </div>
-                                <a href="{{ url_for('news.detail', news_id=4) }}" class="btn btn-sm btn-outline-primary">阅读全文</a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="card news-card">
-                <div class="row g-0">
-                    <div class="col-md-12">
-                        <div class="card-body">
-                            <span class="badge bg-warning news-tag">政策法规</span>
-                            <h5 class="card-title mt-2"><a href="{{ url_for('news.detail', news_id=5) }}" class="text-decoration-none">农业农村部发布大豆振兴计划，提高国内大豆自给率</a></h5>
-                            <p class="card-text">农业农村部近日发布《大豆振兴计划实施方案》，提出到2025年大豆种植面积稳定在1.4亿亩以上，自给率提高到40%以上的目标。</p>
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <span class="news-date"><i class="bi bi-calendar3"></i> 2023-04-28</span>
-                                    <span class="news-source ms-3"><i class="bi bi-building"></i> 中国农业新闻网</span>
-                                </div>
-                                <a href="{{ url_for('news.detail', news_id=5) }}" class="btn btn-sm btn-outline-primary">阅读全文</a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            {% endfor %}
 
             <!-- 分页 -->
             <div class="d-flex justify-content-between align-items-center mt-4">
@@ -195,36 +147,18 @@
                 </div>
                 <div class="card-body">
                     <ul class="list-group list-group-flush">
+                        {% for news in popular_news %}
                         <li class="list-group-item px-0">
-                            <a href="{{ url_for('news.detail', news_id=6) }}" class="text-decoration-none">中美贸易关系改善，大豆进口政策或将调整</a>
+                            {% if news.url %}
+                                <a href="{{ news.url }}" target="_blank" class="text-decoration-none">{{ news.title }} <i class="bi bi-box-arrow-up-right small"></i></a>
+                            {% else %}
+                                <a href="{{ url_for('news.detail', news_id=news.id) }}" class="text-decoration-none">{{ news.title }}</a>
+                            {% endif %}
                             <div class="small text-muted mt-1">
-                                <i class="bi bi-eye"></i> 2,345 阅读 · <i class="bi bi-calendar3"></i> 2023-04-27
+                                <i class="bi bi-eye"></i> {{ news.views }} 阅读 · <i class="bi bi-calendar3"></i> {{ news.date }}
                             </div>
                         </li>
-                        <li class="list-group-item px-0">
-                            <a href="{{ url_for('news.detail', news_id=7) }}" class="text-decoration-none">豆粕期货主力合约创年内新高，后市如何走？</a>
-                            <div class="small text-muted mt-1">
-                                <i class="bi bi-eye"></i> 1,987 阅读 · <i class="bi bi-calendar3"></i> 2023-04-25
-                            </div>
-                        </li>
-                        <li class="list-group-item px-0">
-                            <a href="{{ url_for('news.detail', news_id=8) }}" class="text-decoration-none">深度分析：气候变化对全球大豆产量的影响</a>
-                            <div class="small text-muted mt-1">
-                                <i class="bi bi-eye"></i> 1,756 阅读 · <i class="bi bi-calendar3"></i> 2023-04-23
-                            </div>
-                        </li>
-                        <li class="list-group-item px-0">
-                            <a href="{{ url_for('news.detail', news_id=9) }}" class="text-decoration-none">豆粕期货交易技巧：如何把握季节性规律</a>
-                            <div class="small text-muted mt-1">
-                                <i class="bi bi-eye"></i> 1,543 阅读 · <i class="bi bi-calendar3"></i> 2023-04-20
-                            </div>
-                        </li>
-                        <li class="list-group-item px-0">
-                            <a href="{{ url_for('news.detail', news_id=10) }}" class="text-decoration-none">国内大豆压榨企业产能利用率提升至85%</a>
-                            <div class="small text-muted mt-1">
-                                <i class="bi bi-eye"></i> 1,298 阅读 · <i class="bi bi-calendar3"></i> 2023-04-18
-                            </div>
-                        </li>
+                        {% endfor %}
                     </ul>
                 </div>
             </div>
@@ -298,34 +232,38 @@
     // 这里可以添加新闻页面特定的JavaScript代码
     // 例如新闻搜索、过滤等功能
 
-    // 添加更多新闻卡片用于测试分页功能
     document.addEventListener('DOMContentLoaded', function() {
-        const newsContainer = document.querySelector('.news-list-container');
-        const newsCards = document.querySelectorAll('.news-card');
+        // 搜索功能
+        const searchInput = document.querySelector('input[placeholder="搜索新闻..."]');
+        const searchButton = searchInput.nextElementSibling;
 
-        if (newsContainer && newsCards.length > 0) {
-            // 复制现有的新闻卡片，创建更多卡片用于测试
-            for (let i = 0; i < 10; i++) {
-                const randomIndex = Math.floor(Math.random() * newsCards.length);
-                const clonedCard = newsCards[randomIndex].cloneNode(true);
+        if (searchInput && searchButton) {
+            // 点击搜索按钮时执行搜索
+            searchButton.addEventListener('click', function() {
+                performSearch();
+            });
 
-                // 修改标题，使其不完全相同
-                const titleElement = clonedCard.querySelector('.card-title');
-                if (titleElement) {
-                    const linkElement = titleElement.querySelector('a');
-                    if (linkElement) {
-                        linkElement.textContent += ` (${i + 1})`;
-                        // 确保链接指向正确的新闻详情页面
-                        const newsId = Math.floor(Math.random() * 10) + 1;
-                        linkElement.href = `/news/detail/${newsId}`;
-                    } else {
-                        titleElement.textContent += ` (${i + 1})`;
-                    }
+            // 按回车键时执行搜索
+            searchInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    performSearch();
                 }
+            });
 
-                // 添加到容器
-                newsContainer.insertBefore(clonedCard, document.querySelector('.news-pagination').parentNode);
+            function performSearch() {
+                const keyword = searchInput.value.trim();
+                if (keyword) {
+                    window.location.href = `/news/search?keyword=${encodeURIComponent(keyword)}`;
+                }
             }
+        }
+
+        // 更新分页信息
+        const newsCards = document.querySelectorAll('.news-card');
+        const paginationInfo = document.querySelector('.news-pagination-info');
+
+        if (paginationInfo && newsCards.length > 0) {
+            paginationInfo.textContent = `显示 1-${newsCards.length} 条，共 ${newsCards.length} 条`;
         }
     });
 </script>

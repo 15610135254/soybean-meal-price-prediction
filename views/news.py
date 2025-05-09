@@ -212,17 +212,8 @@ def save_news_data(news_data):
 @login_required
 def index():
     """新闻资讯首页（需要登录）"""
-    # 获取分类过滤参数
-    category = request.args.get('category', 'all')
-
     # 加载新闻数据
     news_data = load_news_data()
-
-    # 根据分类过滤新闻
-    if category != 'all':
-        filtered_news = [news for news in news_data if news['category'] == category]
-    else:
-        filtered_news = news_data
 
     # 获取头条新闻（标记为featured的新闻）
     featured_news = next((news for news in news_data if news.get('is_featured')), news_data[0] if news_data else None)
@@ -230,19 +221,12 @@ def index():
     # 获取热门新闻（按浏览量排序）
     popular_news = sorted(news_data, key=lambda x: x.get('views', 0), reverse=True)[:5]
 
-    # 更新分类的激活状态
-    categories = NEWS_CATEGORIES.copy()
-    for cat in categories:
-        cat['active'] = (cat['id'] == category)
-
     return render_template(
         'news/index.html',
-        news_list=filtered_news,
+        news_list=news_data,
         featured_news=featured_news,
         popular_news=popular_news,
-        categories=categories,
-        market_calendar=MARKET_CALENDAR,
-        current_category=category
+        market_calendar=MARKET_CALENDAR
     )
 
 @bp.route('/detail/<int:news_id>')
@@ -266,8 +250,12 @@ def detail(news_id):
     # 获取相关新闻（同类别的其他新闻）
     related_news = [
         news for news in news_data
-        if news['category'] == news_item['category'] and news['id'] != news_id
+        if news.get('category') == news_item.get('category') and news['id'] != news_id
     ][:3]
+
+    # 如果新闻项有URL字段，则可以跳转到原始新闻页面
+    if 'url' in news_item and news_item['url']:
+        news_item['external_url'] = news_item['url']
 
     return render_template(
         'news/detail.html',
@@ -290,7 +278,7 @@ def search():
     # 搜索标题和内容中包含关键词的新闻
     search_results = [
         news for news in news_data
-        if keyword.lower() in news['title'].lower() or keyword.lower() in news['content'].lower()
+        if keyword.lower() in news.get('title', '').lower() or keyword.lower() in news.get('content', '').lower()
     ]
 
     return render_template(
