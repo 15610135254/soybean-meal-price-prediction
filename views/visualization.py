@@ -835,6 +835,8 @@ def upload_file():
         logger.error(f"不允许的文件类型: {file.filename}")
         return jsonify({"success": False, "error": "只允许上传CSV文件"}), 400
 
+    # 注意：已移除上传方式选项，默认使用替换模式
+
     try:
         # 获取数据文件夹路径
         data_folder = get_data_folder_path()
@@ -1558,6 +1560,290 @@ def add_data():
 
     except Exception as e:
         logger.error(f"添加数据时出错: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@bp.route('/api/append', methods=['POST'])
+@admin_required
+def append_data():
+    """API端点：追加数据文件（仅管理员）"""
+    # 检查是否有文件
+    if 'file' not in request.files:
+        logger.error("没有文件部分")
+        return jsonify({"success": False, "error": "没有选择文件"}), 400
+
+    file = request.files['file']
+
+    # 检查文件名是否为空
+    if file.filename == '':
+        logger.error("没有选择文件")
+        return jsonify({"success": False, "error": "没有选择文件"}), 400
+
+    # 检查文件类型
+    if not allowed_file(file.filename):
+        logger.error(f"不允许的文件类型: {file.filename}")
+        return jsonify({"success": False, "error": "只允许上传CSV文件"}), 400
+
+    try:
+        # 获取当前使用的数据文件路径
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        full_data_path = os.path.join(current_dir, DATA_FILE_PATH)
+
+        # 检查当前数据文件是否存在
+        if not os.path.exists(full_data_path):
+            return jsonify({"success": False, "error": "当前数据文件不存在，无法追加数据"}), 404
+
+        # 读取当前数据文件
+        current_df = pd.read_csv(full_data_path)
+        logger.info(f"读取当前数据文件: {full_data_path}, 行数: {len(current_df)}")
+
+        # 保存上传的文件到临时位置
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix='.csv', delete=False) as temp_file:
+            temp_path = temp_file.name
+            file.save(temp_path)
+            logger.info(f"上传的文件已保存到临时位置: {temp_path}")
+
+        # 读取上传的文件
+        try:
+            new_df = pd.read_csv(temp_path)
+            logger.info(f"读取上传的文件: {temp_path}, 行数: {len(new_df)}")
+        except Exception as e:
+            os.unlink(temp_path)  # 删除临时文件
+            logger.error(f"读取上传的文件时出错: {str(e)}")
+            return jsonify({"success": False, "error": f"读取上传的文件时出错: {str(e)}"}), 400
+
+        # 检查数据集的列名格式
+        is_new_format = 'date' in current_df.columns and '日期' not in current_df.columns
+
+        # 确保两个数据集的列名格式一致
+        if is_new_format:
+            # 新数据集格式
+            required_columns = ['date', 'close']
+            if not all(col in new_df.columns for col in required_columns):
+                os.unlink(temp_path)  # 删除临时文件
+                logger.error(f"上传的文件缺少必要的列: {required_columns}")
+                return jsonify({"success": False, "error": f"上传的文件缺少必要的列: {required_columns}"}), 400
+
+            # 确保日期列是datetime类型
+            current_df['date'] = pd.to_datetime(current_df['date'])
+            new_df['date'] = pd.to_datetime(new_df['date'])
+
+            # 检查是否有重复的日期
+            duplicate_dates = set(new_df['date']).intersection(set(current_df['date']))
+            if duplicate_dates:
+                # 记录重复的日期，但不报错
+                logger.warning(f"上传的文件包含重复的日期: {duplicate_dates}，将跳过这些日期")
+
+                # 过滤掉重复的日期
+                new_df_filtered = new_df[~new_df['date'].isin(duplicate_dates)]
+
+                # 检查过滤后是否还有数据
+                if len(new_df_filtered) == 0:
+                    os.unlink(temp_path)  # 删除临时文件
+                    logger.warning("过滤重复日期后没有剩余数据可添加")
+                    return jsonify({"success": False, "error": "所有数据日期都已存在，没有新数据可添加"}), 400
+
+                # 记录过滤后的数据行数
+                logger.info(f"过滤重复日期后剩余 {len(new_df_filtered)} 行数据可添加")
+
+                # 使用过滤后的数据集
+                new_df = new_df_filtered
+
+            # 合并数据集
+            combined_df = pd.concat([current_df, new_df], ignore_index=True)
+
+            # 确保数据按日期从早到晚排序（升序）
+            combined_df = combined_df.sort_values('date', ascending=True)
+            logger.info(f"合并后的数据集行数: {len(combined_df)}")
+        else:
+            # 旧数据集格式
+            required_columns = ['日期', '收盘价']
+            if not all(col in new_df.columns for col in required_columns):
+                os.unlink(temp_path)  # 删除临时文件
+                logger.error(f"上传的文件缺少必要的列: {required_columns}")
+                return jsonify({"success": False, "error": f"上传的文件缺少必要的列: {required_columns}"}), 400
+
+            # 确保日期列是datetime类型
+            current_df['日期'] = pd.to_datetime(current_df['日期'])
+            new_df['日期'] = pd.to_datetime(new_df['日期'])
+
+            # 检查是否有重复的日期
+            duplicate_dates = set(new_df['日期']).intersection(set(current_df['日期']))
+            if duplicate_dates:
+                # 记录重复的日期，但不报错
+                logger.warning(f"上传的文件包含重复的日期: {duplicate_dates}，将跳过这些日期")
+
+                # 过滤掉重复的日期
+                new_df_filtered = new_df[~new_df['日期'].isin(duplicate_dates)]
+
+                # 检查过滤后是否还有数据
+                if len(new_df_filtered) == 0:
+                    os.unlink(temp_path)  # 删除临时文件
+                    logger.warning("过滤重复日期后没有剩余数据可添加")
+                    return jsonify({"success": False, "error": "所有数据日期都已存在，没有新数据可添加"}), 400
+
+                # 记录过滤后的数据行数
+                logger.info(f"过滤重复日期后剩余 {len(new_df_filtered)} 行数据可添加")
+
+                # 使用过滤后的数据集
+                new_df = new_df_filtered
+
+            # 合并数据集
+            combined_df = pd.concat([current_df, new_df], ignore_index=True)
+
+            # 确保数据按日期从早到晚排序（升序）
+            combined_df = combined_df.sort_values('日期', ascending=True)
+            logger.info(f"合并后的数据集行数: {len(combined_df)}")
+
+        # 保存合并后的数据到原文件
+        combined_df.to_csv(full_data_path, index=False)
+        logger.info(f"合并后的数据已保存到: {full_data_path}")
+
+        # 删除临时文件
+        os.unlink(temp_path)
+
+        # 预处理数据
+        sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+        # 根据数据集格式选择预处理方法
+        if is_new_format:
+            # 新数据集格式
+            from data.preprocess_new_data import preprocess_new_data
+            df = preprocess_new_data(full_data_path, full_data_path)
+
+            # 准备返回数据
+            chart_data = {
+                'labels': df['date'].dt.strftime('%Y-%m-%d').tolist(),
+                'closing_prices': df['close'].tolist(),
+                'opening_prices': df['open'].tolist() if 'open' in df.columns else [],
+                'high_prices': df['high'].tolist() if 'high' in df.columns else [],
+                'low_prices': df['low'].tolist() if 'low' in df.columns else [],
+                'volumes': df['volume'].tolist() if 'volume' in df.columns else [],
+                'a_close': df['a_close'].tolist() if 'a_close' in df.columns else [],
+                'c_close': df['c_close'].tolist() if 'c_close' in df.columns else []
+            }
+
+            # 添加所有技术指标数据（如果存在）
+            # 移动平均线
+            for column in ['MA_5', 'MA_10', 'MA_20', 'MA_30', 'MA_60']:
+                if column in df.columns:
+                    chart_data[column.lower().replace('_', '')] = df[column].tolist()
+
+            # RSI指标
+            if 'RSI_14' in df.columns:
+                chart_data['rsi'] = df['RSI_14'].tolist()
+
+            # MACD指标
+            if 'MACD' in df.columns:
+                chart_data['MACD'] = df['MACD'].tolist()
+
+            # 波动率指标
+            if 'HV_20' in df.columns:
+                chart_data['hv20'] = df['HV_20'].tolist()
+
+            # ATR指标
+            if 'ATR_14' in df.columns:
+                chart_data['atr14'] = df['ATR_14'].tolist()
+
+            # OBV指标
+            if 'OBV' in df.columns:
+                chart_data['obv'] = df['OBV'].tolist()
+
+            # 价格变动和日内波幅
+            if 'price_change' in df.columns:
+                chart_data['price_change'] = df['price_change'].tolist()
+            if 'daily_range' in df.columns:
+                chart_data['daily_range'] = df['daily_range'].tolist()
+
+            # 涨跌幅
+            if 'price_change_pct' in df.columns:
+                chart_data['price_change_pct'] = df['price_change_pct'].tolist()
+
+            # 成交量变化率
+            if 'volume_change_pct' in df.columns:
+                chart_data['volume_change_pct'] = df['volume_change_pct'].tolist()
+        else:
+            # 旧数据集格式
+            from data.preprocess_data import preprocess_data
+            df = preprocess_data(full_data_path, full_data_path)
+
+            # 准备返回数据
+            chart_data = {
+                'labels': df['日期'].dt.strftime('%Y-%m-%d').tolist(),
+                'closing_prices': df['收盘价'].tolist(),
+                'opening_prices': df['开盘价'].tolist() if '开盘价' in df.columns else [],
+                'high_prices': df['最高价'].tolist() if '最高价' in df.columns else [],
+                'low_prices': df['最低价'].tolist() if '最低价' in df.columns else [],
+                'volumes': df['成交量'].tolist() if '成交量' in df.columns else [],
+                'a_close': df['a_close'].tolist() if 'a_close' in df.columns else [],
+                'c_close': df['c_close'].tolist() if 'c_close' in df.columns else []
+            }
+
+            # 添加所有技术指标数据（如果存在）
+            # 移动平均线
+            for column in ['MA5', 'MA10', 'MA20', 'MA30', 'MA60', 'EMA12', 'EMA26']:
+                if column in df.columns:
+                    chart_data[column.lower()] = df[column].tolist()
+
+            # RSI指标
+            if 'RSI' in df.columns:
+                chart_data['rsi'] = df['RSI'].tolist()
+
+            # MACD指标
+            for column in ['MACD', 'MACD_Signal', 'MACD_Hist']:
+                if column in df.columns:
+                    chart_data[column] = df[column].tolist()
+
+            # KDJ指标
+            for column in ['RSV', 'K', 'D', 'J']:
+                if column in df.columns:
+                    chart_data[column] = df[column].tolist()
+
+            # 布林带指标
+            for column in ['中轨线', '标准差', '上轨线', '下轨线']:
+                if column in df.columns:
+                    chart_data[column] = df[column].tolist()
+
+            # 成交量指标
+            for column in ['成交量变化率', '相对成交量', '成交量MA5', '成交量MA10']:
+                if column in df.columns:
+                    chart_data[column] = df[column].tolist()
+
+            # 其他技术指标和特征
+            for column in ['涨跌幅', '日内波幅', '价格变动', '突破MA5', '突破MA10', '突破MA20', '金叉', '死叉']:
+                if column in df.columns:
+                    chart_data[column] = df[column].tolist()
+
+        # 计算添加的记录数
+        added_rows = len(df) - len(current_df)
+
+        # 构建成功消息
+        success_message = f"数据追加成功，共添加 {added_rows} 条记录"
+
+        # 如果有重复日期被跳过，添加到消息中
+        if 'duplicate_dates' in locals() and duplicate_dates:
+            skipped_count = len(duplicate_dates)
+            success_message += f"，跳过了 {skipped_count} 条重复日期的记录"
+
+        # 返回成功响应
+        response_data = {
+            "success": True,
+            "message": success_message,
+            "chart_data": chart_data,
+            "added_rows": added_rows,
+            "total_rows": len(df),
+            "skipped_dates": list(str(date) for date in duplicate_dates) if 'duplicate_dates' in locals() and duplicate_dates else []
+        }
+
+        return current_app.response_class(
+            json.dumps(response_data, cls=NpEncoder),
+            mimetype='application/json'
+        )
+
+    except Exception as e:
+        logger.error(f"追加数据时出错: {str(e)}")
         import traceback
         traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500

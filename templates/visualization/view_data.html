@@ -345,9 +345,6 @@
                         <button class="btn btn-outline-primary mb-3" type="button" data-bs-toggle="modal" data-bs-target="#appendDataModal">
                             <i class="bi bi-file-earmark-plus"></i> 增加数据文件
                         </button>
-                        <button class="btn btn-outline-primary mb-3" type="button" data-bs-toggle="modal" data-bs-target="#addDataModal">
-                            <i class="bi bi-plus-circle"></i> 添加数据
-                        </button>
                         <button class="btn btn-outline-primary mb-3" type="button" data-bs-toggle="modal" data-bs-target="#editDataModal">
                             <i class="bi bi-pencil"></i> 编辑数据
                         </button>
@@ -395,21 +392,7 @@
                         <input class="form-control" type="file" id="dataFile" name="file" accept=".csv" required>
                         <div class="form-text">请上传包含日期、开盘价、最高价、最低价、收盘价、成交量等列的CSV文件</div>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">上传方式</label>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="uploadMode" id="replaceMode" value="replace" checked>
-                            <label class="form-check-label" for="replaceMode">
-                                替换现有数据
-                            </label>
-                        </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="uploadMode" id="appendMode" value="append">
-                            <label class="form-check-label" for="appendMode">
-                                添加到现有数据
-                            </label>
-                        </div>
-                    </div>
+
                     <div class="alert alert-info">
                         <small>上传后系统将自动处理数据，添加技术指标，并使用新上传的数据进行趋势图显示和预测分析。</small>
                     </div>
@@ -507,52 +490,7 @@
     </div>
 </div>
 
-<!-- 添加数据模态框 -->
-<div class="modal fade" id="addDataModal" tabindex="-1" aria-labelledby="addDataModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="addDataModalLabel">添加数据</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <form>
-                    <div class="mb-3">
-                        <label for="addDate" class="form-label">日期</label>
-                        <input type="date" class="form-control" id="addDate" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="addOpen" class="form-label">开盘价</label>
-                        <input type="number" class="form-control" id="addOpen" step="0.01">
-                    </div>
-                    <div class="mb-3">
-                        <label for="addHigh" class="form-label">最高价</label>
-                        <input type="number" class="form-control" id="addHigh" step="0.01">
-                    </div>
-                    <div class="mb-3">
-                        <label for="addLow" class="form-label">最低价</label>
-                        <input type="number" class="form-control" id="addLow" step="0.01">
-                    </div>
-                    <div class="mb-3">
-                        <label for="addClose" class="form-label">收盘价</label>
-                        <input type="number" class="form-control" id="addClose" step="0.01" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="addVolume" class="form-label">成交量</label>
-                        <input type="number" class="form-control" id="addVolume">
-                    </div>
-                    <div class="alert alert-info">
-                        <small>添加数据后系统将自动处理，计算技术指标，并更新图表和预测。日期和收盘价为必填项。</small>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                <button type="button" class="btn btn-primary" id="saveAddBtn">添加</button>
-            </div>
-        </div>
-    </div>
-</div>
+
 
 <!-- 删除数据模态框 -->
 <div class="modal fade" id="deleteDataModal" tabindex="-1" aria-labelledby="deleteDataModalLabel" aria-hidden="true">
@@ -2132,13 +2070,9 @@
             return;
         }
 
-        // 获取上传模式
-        const uploadMode = document.querySelector('input[name="uploadMode"]:checked').value;
-
         // 创建FormData对象
         const formData = new FormData();
         formData.append('file', file);
-        formData.append('mode', uploadMode);
 
         // 显示上传状态
         const uploadStatus = document.getElementById('uploadStatus');
@@ -2846,7 +2780,6 @@
         // 创建FormData对象
         const formData = new FormData();
         formData.append('file', file);
-        formData.append('mode', 'append'); // 指定为添加模式
 
         // 显示上传状态
         const appendStatus = document.getElementById('appendStatus');
@@ -2898,7 +2831,14 @@
         .then(data => {
             if (data.success) {
                 // 上传成功
-                appendStatusText.textContent = `文件上传成功，共添加 ${data.added_rows} 条记录，总计 ${data.total_rows} 条记录`;
+                let statusMessage = `文件上传成功，共添加 ${data.added_rows} 条记录，总计 ${data.total_rows} 条记录`;
+
+                // 如果有跳过的日期，显示相关信息
+                if (data.skipped_dates && data.skipped_dates.length > 0) {
+                    statusMessage += `，跳过了 ${data.skipped_dates.length} 条重复日期的记录`;
+                }
+
+                appendStatusText.textContent = statusMessage;
 
                 // 更新图表数据
                 if (data.chart_data) {
@@ -2928,7 +2868,11 @@
                     document.getElementById('applyFiltersBtn').click();
 
                     // 显示成功消息
-                    showNotification('数据添加成功，图表和预测已使用新数据更新', 'success');
+                    let notificationMessage = '数据添加成功，图表和预测已使用新数据更新';
+                    if (data.skipped_dates && data.skipped_dates.length > 0) {
+                        notificationMessage += `，已跳过 ${data.skipped_dates.length} 条重复日期的记录`;
+                    }
+                    showNotification(notificationMessage, 'success');
 
                     // 关闭模态框
                     setTimeout(() => {
@@ -2958,272 +2902,9 @@
         });
     });
 
-    // 增加数据功能
-    document.getElementById('appendDataBtn').addEventListener('click', function() {
-        // 获取表单和文件
-        const form = document.getElementById('appendDataForm');
-        const fileInput = document.getElementById('appendDataFile');
+    // 增加数据功能已在上方实现
 
-        // 检查是否选择了文件
-        if (!fileInput.files || fileInput.files.length === 0) {
-            alert('请选择要上传的CSV文件');
-            return;
-        }
-
-        // 检查文件类型
-        const file = fileInput.files[0];
-        if (!file.name.toLowerCase().endsWith('.csv')) {
-            alert('请选择CSV格式的文件');
-            return;
-        }
-
-        // 创建FormData对象
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('mode', 'append'); // 指定为添加模式
-
-        // 显示上传状态
-        const appendStatus = document.getElementById('appendStatus');
-        const appendProgressBar = document.getElementById('appendProgressBar');
-        const appendStatusText = document.getElementById('appendStatusText');
-
-        appendStatus.classList.remove('d-none');
-        appendProgressBar.style.width = '0%';
-        appendStatusText.textContent = '准备上传...';
-
-        // 禁用上传按钮
-        const appendBtn = document.getElementById('appendDataBtn');
-        appendBtn.disabled = true;
-
-        // 发送请求
-        fetch('/viz/api/append', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => {
-            appendProgressBar.style.width = '100%';
-
-            if (!response.ok) {
-                if (response.status === 500) {
-                    // 尝试解析错误消息
-                    return response.json().then(data => {
-                        throw new Error(data.error || `上传失败: ${response.status} ${response.statusText}`);
-                    }).catch(err => {
-                        // 如果JSON解析失败，使用原始错误
-                        throw new Error(`上传失败: ${response.status} ${response.statusText}`);
-                    });
-                } else {
-                    throw new Error(`上传失败: ${response.status} ${response.statusText}`);
-                }
-            }
-
-            appendStatusText.textContent = '上传成功，正在处理数据...';
-
-            // 安全地解析JSON
-            return response.text().then(text => {
-                try {
-                    // 尝试解析JSON
-                    return JSON.parse(text);
-                } catch (e) {
-                    throw new Error('服务器返回的数据格式无效');
-                }
-            });
-        })
-        .then(data => {
-            if (data.success) {
-                // 上传成功
-                appendStatusText.textContent = `文件上传成功，共添加 ${data.added_rows} 条记录，总计 ${data.total_rows} 条记录`;
-
-                // 更新图表数据
-                if (data.chart_data) {
-                    // 更新全局数据
-                    chartData = data.chart_data;
-                    labels = data.chart_data.labels;
-                    closingPrices = data.chart_data.closing_prices;
-
-                    // 根据时间范围过滤数据
-                    const timeRange = document.getElementById('timeRangeSelect').value;
-                    const filteredData = filterDataByTimeRange(timeRange);
-
-                    // 更新所有图表
-                    updateAllCharts(filteredData);
-
-                    // 清除预测数据
-                    closingPriceChart.data.datasets[1].data = [];
-                    closingPriceChart.update();
-
-                    // 更新数据表格
-                    updateDataTable(chartData);
-
-                    // 更新价格预测卡片
-                    updatePricePredictionCards();
-
-                    // 自动触发预测
-                    document.getElementById('applyFiltersBtn').click();
-
-                    // 显示成功消息
-                    showNotification('数据添加成功，图表和预测已使用新数据更新', 'success');
-
-                    // 关闭模态框
-                    setTimeout(() => {
-                        const modal = bootstrap.Modal.getInstance(document.getElementById('appendDataModal'));
-                        if (modal) {
-                            modal.hide();
-                        }
-                    }, 1500);
-                }
-            } else {
-                // 上传失败
-                appendStatusText.textContent = data.error || '添加失败';
-                appendProgressBar.classList.remove('bg-primary');
-                appendProgressBar.classList.add('bg-danger');
-                showNotification('添加失败: ' + (data.error || '未知错误'), 'danger');
-            }
-        })
-        .catch(error => {
-            appendStatusText.textContent = `添加失败: ${error.message}`;
-            appendProgressBar.classList.remove('bg-primary');
-            appendProgressBar.classList.add('bg-danger');
-            showNotification('添加失败: ' + error.message, 'danger');
-        })
-        .finally(() => {
-            // 启用上传按钮
-            appendBtn.disabled = false;
-        });
-    });
-
-    // 增加数据功能
-    document.getElementById('appendDataBtn').addEventListener('click', function() {
-        // 获取表单和文件
-        const form = document.getElementById('appendDataForm');
-        const fileInput = document.getElementById('appendDataFile');
-
-        // 检查是否选择了文件
-        if (!fileInput.files || fileInput.files.length === 0) {
-            alert('请选择要上传的CSV文件');
-            return;
-        }
-
-        // 检查文件类型
-        const file = fileInput.files[0];
-        if (!file.name.toLowerCase().endsWith('.csv')) {
-            alert('请选择CSV格式的文件');
-            return;
-        }
-
-        // 创建FormData对象
-        const formData = new FormData();
-        formData.append('file', file);
-
-        // 显示上传状态
-        const appendStatus = document.getElementById('appendStatus');
-        const appendProgressBar = document.getElementById('appendProgressBar');
-        const appendStatusText = document.getElementById('appendStatusText');
-
-        appendStatus.classList.remove('d-none');
-        appendProgressBar.style.width = '0%';
-        appendStatusText.textContent = '准备上传...';
-
-        // 禁用上传按钮
-        const appendBtn = document.getElementById('appendDataBtn');
-        appendBtn.disabled = true;
-
-        // 发送请求
-        fetch('/viz/api/append', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => {
-            appendProgressBar.style.width = '100%';
-
-            if (!response.ok) {
-                if (response.status === 500) {
-                    // 尝试解析错误消息
-                    return response.json().then(data => {
-                        throw new Error(data.error || `上传失败: ${response.status} ${response.statusText}`);
-                    }).catch(err => {
-                        // 如果JSON解析失败，使用原始错误
-                        throw new Error(`上传失败: ${response.status} ${response.statusText}`);
-                    });
-                } else {
-                    throw new Error(`上传失败: ${response.status} ${response.statusText}`);
-                }
-            }
-
-            appendStatusText.textContent = '上传成功，正在处理数据...';
-
-            // 安全地解析JSON
-            return response.text().then(text => {
-                try {
-                    // 尝试解析JSON
-                    return JSON.parse(text);
-                } catch (e) {
-                    throw new Error('服务器返回的数据格式无效');
-                }
-            });
-        })
-        .then(data => {
-            if (data.success) {
-                // 上传成功
-                appendStatusText.textContent = `文件上传成功，共添加 ${data.added_rows} 条记录，总计 ${data.total_rows} 条记录`;
-
-                // 更新图表数据
-                if (data.chart_data) {
-                    // 更新全局数据
-                    chartData = data.chart_data;
-                    labels = data.chart_data.labels;
-                    closingPrices = data.chart_data.closing_prices;
-
-                    // 根据时间范围过滤数据
-                    const timeRange = document.getElementById('timeRangeSelect').value;
-                    const filteredData = filterDataByTimeRange(timeRange);
-
-                    // 更新所有图表
-                    updateAllCharts(filteredData);
-
-                    // 清除预测数据
-                    closingPriceChart.data.datasets[1].data = [];
-                    closingPriceChart.update();
-
-                    // 更新数据表格
-                    updateDataTable(chartData);
-
-                    // 更新价格预测卡片
-                    updatePricePredictionCards();
-
-                    // 自动触发预测
-                    document.getElementById('applyFiltersBtn').click();
-
-                    // 显示成功消息
-                    showNotification('数据添加成功，图表和预测已使用新数据更新', 'success');
-
-                    // 关闭模态框
-                    setTimeout(() => {
-                        const modal = bootstrap.Modal.getInstance(document.getElementById('appendDataModal'));
-                        if (modal) {
-                            modal.hide();
-                        }
-                    }, 1500);
-                }
-            } else {
-                // 上传失败
-                appendStatusText.textContent = data.error || '添加失败';
-                appendProgressBar.classList.remove('bg-primary');
-                appendProgressBar.classList.add('bg-danger');
-                showNotification('添加失败: ' + (data.error || '未知错误'), 'danger');
-            }
-        })
-        .catch(error => {
-            appendStatusText.textContent = `添加失败: ${error.message}`;
-            appendProgressBar.classList.remove('bg-primary');
-            appendProgressBar.classList.add('bg-danger');
-            showNotification('添加失败: ' + error.message, 'danger');
-        })
-        .finally(() => {
-            // 启用上传按钮
-            appendBtn.disabled = false;
-        });
-    });
+    // 删除了重复的事件监听器代码
 
     // 在删除模态框显示前设置当前日期
     $('#deleteDataModal').on('show.bs.modal', function () {
@@ -3234,12 +2915,70 @@
         document.getElementById('deleteDate').removeAttribute('readonly');
     });
 
-    // 在添加数据模态框显示前设置当前日期
-    $('#addDataModal').on('show.bs.modal', function () {
+
+
+    // 在编辑数据模态框显示前设置当前日期并添加日期变更事件
+    $('#editDataModal').on('show.bs.modal', function () {
         const today = new Date();
         const formattedDate = today.toISOString().split('T')[0];
-        document.getElementById('addDate').value = formattedDate;
+
+        // 设置默认日期为今天
+        const editDateInput = document.getElementById('editDate');
+        editDateInput.value = formattedDate;
+
+        // 保存当前编辑日期
+        currentEditDate = formattedDate;
+
+        // 清空其他字段
+        document.getElementById('editOpen').value = '';
+        document.getElementById('editHigh').value = '';
+        document.getElementById('editLow').value = '';
+        document.getElementById('editClose').value = '';
+        document.getElementById('editVolume').value = '';
+
+        // 尝试查找并填充当前日期的数据
+        fillEditFormWithDateData(formattedDate);
     });
+
+    // 只添加一次日期变更事件（在页面加载时）
+    document.getElementById('editDate').addEventListener('change', function() {
+        const selectedDate = this.value;
+        currentEditDate = selectedDate;
+        fillEditFormWithDateData(selectedDate);
+    });
+
+    // 根据日期填充编辑表单数据
+    function fillEditFormWithDateData(date) {
+        if (!chartData || !chartData.labels) return;
+
+        // 查找日期对应的索引
+        const dateIndex = chartData.labels.findIndex(label => label === date);
+
+        if (dateIndex !== -1) {
+            // 找到数据，填充表单
+            document.getElementById('editOpen').value = chartData.opening_prices && chartData.opening_prices[dateIndex] !== undefined ?
+                chartData.opening_prices[dateIndex] : '';
+            document.getElementById('editHigh').value = chartData.high_prices && chartData.high_prices[dateIndex] !== undefined ?
+                chartData.high_prices[dateIndex] : '';
+            document.getElementById('editLow').value = chartData.low_prices && chartData.low_prices[dateIndex] !== undefined ?
+                chartData.low_prices[dateIndex] : '';
+            document.getElementById('editClose').value = chartData.closing_prices && chartData.closing_prices[dateIndex] !== undefined ?
+                chartData.closing_prices[dateIndex] : '';
+            document.getElementById('editVolume').value = chartData.volumes && chartData.volumes[dateIndex] !== undefined ?
+                chartData.volumes[dateIndex] : '';
+
+            showNotification(`已加载 ${date} 的数据`, 'success');
+        } else {
+            // 未找到数据，清空表单
+            document.getElementById('editOpen').value = '';
+            document.getElementById('editHigh').value = '';
+            document.getElementById('editLow').value = '';
+            document.getElementById('editClose').value = '';
+            document.getElementById('editVolume').value = '';
+
+            showNotification(`未找到 ${date} 的数据，请输入新数据`, 'warning');
+        }
+    }
 
     // 添加日期区间查询功能
     document.getElementById('queryDateRangeBtn').addEventListener('click', function() {
@@ -3273,96 +3012,6 @@
         showNotification('已重置日期筛选，显示全部数据', 'info');
     });
 
-    // 添加数据按钮点击事件
-    document.getElementById('saveAddBtn').addEventListener('click', async function() {
-        // 获取表单中的数据
-        const date = document.getElementById('addDate').value;
-        const open = document.getElementById('addOpen').value;
-        const high = document.getElementById('addHigh').value;
-        const low = document.getElementById('addLow').value;
-        const close = document.getElementById('addClose').value;
-        const volume = document.getElementById('addVolume').value;
 
-        // 验证数据
-        if (!date || !close) {
-            showNotification('日期和收盘价是必填字段', 'danger');
-            return;
-        }
-
-        try {
-            // 显示加载状态
-            showNotification('正在添加数据...', 'info');
-
-            // 发送添加请求
-            const response = await fetch('/viz/api/add-data', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    date,
-                    open: open ? parseFloat(open) : null,
-                    high: high ? parseFloat(high) : null,
-                    low: low ? parseFloat(low) : null,
-                    close: parseFloat(close),
-                    volume: volume ? parseInt(volume) : null
-                })
-            });
-
-            // 解析响应
-            const data = await response.json();
-
-            if (data.success) {
-                // 关闭模态框
-                const modal = bootstrap.Modal.getInstance(document.getElementById('addDataModal'));
-                if (modal) {
-                    modal.hide();
-                }
-
-                // 更新图表数据
-                if (data.chart_data) {
-                    // 更新全局数据
-                    chartData = data.chart_data;
-                    labels = data.chart_data.labels;
-                    closingPrices = data.chart_data.closing_prices;
-
-                    // 根据时间范围过滤数据
-                    const timeRange = document.getElementById('timeRangeSelect').value;
-                    const filteredData = filterDataByTimeRange(timeRange);
-
-                    // 更新所有图表
-                    updateAllCharts(filteredData);
-
-                    // 清除预测数据
-                    closingPriceChart.data.datasets[1].data = [];
-                    closingPriceChart.update();
-
-                    // 更新数据表格
-                    updateDataTable(chartData);
-
-                    // 更新价格预测卡片
-                    updatePricePredictionCards();
-
-                    // 自动触发预测
-                    document.getElementById('applyFiltersBtn').click();
-
-                    // 显示成功消息
-                    showNotification('数据添加成功，图表和预测已更新', 'success');
-
-                    // 清空表单
-                    document.getElementById('addOpen').value = '';
-                    document.getElementById('addHigh').value = '';
-                    document.getElementById('addLow').value = '';
-                    document.getElementById('addClose').value = '';
-                    document.getElementById('addVolume').value = '';
-                }
-            } else {
-                // 显示错误消息
-                showNotification('添加失败: ' + (data.error || '未知错误'), 'danger');
-            }
-        } catch (error) {
-            showNotification('添加失败: ' + error.message, 'danger');
-        }
-    });
 </script>
 {% endblock %}
