@@ -50,18 +50,7 @@
             <div class="card data-controls">
                 <div class="card-body">
                     <div class="row">
-                        <div class="col-md-3">
-                            <label for="timeRangeSelect" class="form-label">时间范围</label>
-                            <select class="form-select" id="timeRangeSelect">
-                                <option value="7">最近一周</option>
-                                <option value="30" selected>最近一个月</option>
-                                <option value="90">最近三个月</option>
-                                <option value="180">最近六个月</option>
-                                <option value="365">最近一年</option>
-                                <option value="all">全部数据</option>
-                            </select>
-                        </div>
-                        <div class="col-md-3">
+                        <div class="col-md-8">
                             <label for="modelSelect" class="form-label">预测模型</label>
                             <select class="form-select" id="modelSelect">
                                 <option value="mlp" selected>MLP模型</option>
@@ -69,17 +58,20 @@
                                 <option value="cnn">CNN模型</option>
                             </select>
                         </div>
-                        <div class="col-md-3">
-                            <label for="predictionRange" class="form-label">预测天数</label>
-                            <select class="form-select" id="predictionRange">
-                                <option value="1" selected>1天</option>
-                            </select>
-                        </div>
-                        <div class="col-md-3">
+                        <div class="col-md-4">
                             <label class="form-label">&nbsp;</label>
                             <button class="btn btn-primary w-100" id="applyFiltersBtn">
                                 <i class="bi bi-funnel"></i> 预测
                             </button>
+                        </div>
+                        <!-- 隐藏的元素，保持JavaScript功能正常 -->
+                        <div style="display: none;">
+                            <select id="timeRangeSelect">
+                                <option value="30" selected>最近一个月</option>
+                            </select>
+                            <select id="predictionRange">
+                                <option value="1" selected>1天</option>
+                            </select>
                         </div>
                     </div>
                 </div>
@@ -103,7 +95,7 @@
         <div class="col-md-4">
             <div class="card data-card bg-light">
                 <div class="card-body text-center">
-                    <h5 class="card-title" id="prediction-title">预测价格 (1天后)</h5>
+                    <h5 class="card-title" id="prediction-title">预测收盘价 (明日)</h5>
                     <div id="prediction-loading" class="text-center py-2">
                         <div class="spinner-border spinner-border-sm text-primary" role="status">
                             <span class="visually-hidden">加载中...</span>
@@ -679,7 +671,7 @@
         // 立即更新预测天数显示，不等待API响应
         const predictionTitle = document.getElementById('prediction-title');
         if (predictionTitle) {
-            predictionTitle.textContent = `预测价格 (${initialDays}天后)`;
+            predictionTitle.textContent = `预测收盘价 (明日)`;
         }
 
         try {
@@ -735,7 +727,7 @@
                 // 更新预测天数显示
                 const predictionTitle = document.getElementById('prediction-title');
                 if (predictionTitle) {
-                    predictionTitle.textContent = `预测价格 (${initialDays}天后)`;
+                    predictionTitle.textContent = `预测收盘价 (明日)`;
                 }
             }
         } catch (error) {
@@ -1174,7 +1166,7 @@
                 // 预测天数固定为1天
                 const predictionTitle = document.getElementById('prediction-title');
                 if (predictionTitle) {
-                    predictionTitle.textContent = '预测价格 (1天后)';
+                    predictionTitle.textContent = '预测收盘价 (明日)';
                 }
 
                 // 更新预测价格
@@ -1346,20 +1338,23 @@
         updateModelDescription(selectedModel);
     });
 
-    // 添加时间范围选择的事件监听器
-    document.getElementById('timeRangeSelect').addEventListener('change', function() {
-        // 获取选择的时间范围
-        const timeRange = this.value;
+    // 添加时间范围选择的事件监听器（保留但不再需要用户交互）
+    const timeRangeSelect = document.getElementById('timeRangeSelect');
+    if (timeRangeSelect) {
+        timeRangeSelect.addEventListener('change', function() {
+            // 获取选择的时间范围
+            const timeRange = this.value;
 
-        // 根据选择的时间范围过滤数据
-        const filteredData = filterDataByTimeRange(timeRange);
+            // 根据选择的时间范围过滤数据
+            const filteredData = filterDataByTimeRange(timeRange);
 
-        // 更新所有图表的数据
-        updateAllCharts(filteredData);
+            // 更新所有图表的数据
+            updateAllCharts(filteredData);
 
-        // 自动点击预测按钮
-        document.getElementById('applyFiltersBtn').click();
-    });
+            // 自动点击预测按钮
+            document.getElementById('applyFiltersBtn').click();
+        });
+    }
 
     // 更新所有图表的函数
     function updateAllCharts(filteredData) {
@@ -1442,7 +1437,7 @@
     document.getElementById('predictionRange').value = '1';
     const predictionTitle = document.getElementById('prediction-title');
     if (predictionTitle) {
-        predictionTitle.textContent = '预测价格 (1天后)';
+        predictionTitle.textContent = '预测收盘价 (明日)';
     }
 
     // 创建RSI_14指标图表
