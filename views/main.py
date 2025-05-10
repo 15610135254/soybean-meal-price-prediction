@@ -2,7 +2,8 @@ from flask import Blueprint, render_template, redirect, url_for, session, jsonif
 import os
 import pandas as pd
 import logging
-from datetime import datetime
+from views.data_utils import reset_data_file_path, get_full_data_path
+from views.news import load_news_data
 
 # 设置日志记录
 logging.basicConfig(level=logging.INFO)
@@ -10,23 +11,34 @@ logger = logging.getLogger(__name__)
 
 bp = Blueprint('main', __name__)
 
-# 数据文件路径 (相对于当前文件)
-DATA_FILE_PATH = '../model_data/date1.csv'
+# 使用 data_utils 模块管理数据文件路径
 
 @bp.route('/')
 def index():
     """首页路由，检查用户是否已登录，未登录则重定向到登录页面"""
+    # 重置数据文件路径为默认值
+    reset_data_file_path()
+
     if 'user_id' not in session:
         return redirect(url_for('auth.login'))
-    return render_template('index.html')
+
+    # 加载新闻数据
+    news_data = load_news_data()
+
+    # 获取最新的3条新闻（按日期排序）
+    def get_date(x):
+        return x.get('date', '')
+
+    latest_news = sorted(news_data, key=get_date, reverse=True)[:3]
+
+    return render_template('index.html', latest_news=latest_news)
 
 @bp.route('/api/latest-market-data')
 def get_latest_market_data():
     """API端点：获取最新的市场数据"""
     try:
         # 获取数据文件路径
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        full_data_path = os.path.join(current_dir, DATA_FILE_PATH)
+        full_data_path = get_full_data_path()
 
         # 检查文件是否存在
         if not os.path.exists(full_data_path):

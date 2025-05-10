@@ -1,22 +1,12 @@
 
 document.addEventListener('DOMContentLoaded', function() {
-    // 激活当前页面的导航链接
     activateCurrentNavLink();
-
-    // 添加卡片悬停效果
     addCardHoverEffects();
-
-    // 初始化工具提示
     initializeTooltips();
-
-    // 添加平滑滚动效果
     addSmoothScrolling();
-
-    // 添加返回顶部按钮
     addBackToTopButton();
 });
 
-// 激活当前页面的导航链接
 function activateCurrentNavLink() {
     const currentPath = window.location.pathname;
     const navLinks = document.querySelectorAll('.navbar-nav .nav-link');
@@ -32,7 +22,6 @@ function activateCurrentNavLink() {
     });
 }
 
-// 添加卡片悬停效果
 function addCardHoverEffects() {
     const cards = document.querySelectorAll('.card');
 
@@ -49,9 +38,7 @@ function addCardHoverEffects() {
     });
 }
 
-// 初始化工具提示
 function initializeTooltips() {
-    // 检查是否有Bootstrap的工具提示功能
     if (typeof bootstrap !== 'undefined' && typeof bootstrap.Tooltip !== 'undefined') {
         const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
         tooltipTriggerList.map(function (tooltipTriggerEl) {
@@ -60,7 +47,6 @@ function initializeTooltips() {
     }
 }
 
-// 添加平滑滚动效果
 function addSmoothScrolling() {
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
         anchor.addEventListener('click', function (e) {
@@ -79,9 +65,7 @@ function addSmoothScrolling() {
     });
 }
 
-// 添加返回顶部按钮
 function addBackToTopButton() {
-    // 创建返回顶部按钮
     const backToTopBtn = document.createElement('button');
     backToTopBtn.innerHTML = '<i class="bi bi-arrow-up"></i>';
     backToTopBtn.className = 'btn btn-primary back-to-top';
@@ -97,7 +81,6 @@ function addBackToTopButton() {
 
     document.body.appendChild(backToTopBtn);
 
-    // 监听滚动事件
     window.addEventListener('scroll', function() {
         if (window.pageYOffset > 300) {
             backToTopBtn.style.display = 'block';
@@ -106,7 +89,6 @@ function addBackToTopButton() {
         }
     });
 
-    // 点击返回顶部
     backToTopBtn.addEventListener('click', function() {
         window.scrollTo({
             top: 0,
@@ -115,12 +97,10 @@ function addBackToTopButton() {
     });
 }
 
-// 格式化数字为千分位格式
 function formatNumber(number) {
     return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
-// 格式化日期
 function formatDate(dateString) {
     const date = new Date(dateString);
     return date.toLocaleDateString('zh-CN', {
@@ -130,12 +110,10 @@ function formatDate(dateString) {
     });
 }
 
-// 计算百分比变化
 function calculatePercentChange(oldValue, newValue) {
     return ((newValue - oldValue) / oldValue * 100).toFixed(2) + '%';
 }
 
-// 显示加载中动画
 function showLoading(elementId) {
     const element = document.getElementById(elementId);
     if (element) {
@@ -143,7 +121,6 @@ function showLoading(elementId) {
     }
 }
 
-// 隐藏加载中动画
 function hideLoading(elementId) {
     const element = document.getElementById(elementId);
     if (element) {
@@ -151,11 +128,8 @@ function hideLoading(elementId) {
     }
 }
 
-// 显示通知消息
 function showNotification(message, type = 'success') {
-    // 检查是否有Bootstrap的Toast功能
     if (typeof bootstrap !== 'undefined' && typeof bootstrap.Toast !== 'undefined') {
-        // 创建Toast元素
         const toastElement = document.createElement('div');
         toastElement.className = `toast align-items-center text-white bg-${type} border-0`;
         toastElement.setAttribute('role', 'alert');

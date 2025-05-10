@@ -89,5 +89,4 @@ if __name__ == "__main__":
         train_models(args)
     except Exception as e:
         print(f"训练过程中发生错误: {str(e)}")
-        import traceback
         traceback.print_exc() 

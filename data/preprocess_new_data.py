@@ -48,12 +48,17 @@ def preprocess_new_data(input_file, output_file=None):
             # 处理异常值 (例如替换3倍标准差以外的值为NaN)
             mean = df[col].mean()
             std = df[col].std()
-            outliers = df[col].apply(lambda x: x < mean - 3 * std or x > mean + 3 * std)
+            def check_outlier(x, mean, std):
+                return x < mean - 3 * std or x > mean + 3 * std
+            def handle_nan_values(x):
+                return np.nan_to_num(x, nan=0.0, posinf=0.0, neginf=0.0)
+            outliers = df[col].apply(check_outlier, args=(mean, std))
             outlier_count = outliers.sum()
             
             if outlier_count > 0:
                 print(f"\n'{col}'列检测到 {outlier_count} 个异常值")
                 # 可以选择保留这些记录但标记出来，此处不进行替换
+            df[col] = df[col].apply(handle_nan_values)
     
     # 4. 填充缺失值 (使用前一个值填充)
     df = df.fillna(method='ffill')

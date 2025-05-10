@@ -79,7 +79,7 @@ def get_data(url):
             numeric_cols = headers[1:]
             for col in numeric_cols:
                 # 清理数值（去除逗号等非数字字符）
-                df[col] = df[col].apply(lambda x: re.sub(r'[^\d.]', '', str(x)) if pd.notna(x) else x)
+                df[col] = df[col].apply(clean_numeric_string)
                 df[col] = pd.to_numeric(df[col], errors='coerce')
         
         print(f"成功提取了 {len(df)} 行数据")
@@ -137,6 +137,11 @@ def get_pages_range(base_url, start_page=1, end_page=120):
     else:
         print("未提取到任何数据")
         return None
+
+def clean_numeric_string(x):
+    if pd.notna(x):
+        return re.sub(r'[^\d.]', '', str(x))
+    return x
 
 if __name__ == "__main__":
     base_url = "https://vip.stock.finance.sina.com.cn/q/view/vFutures_History.php?jys=dce&pz=M&hy=M0&breed=M0&type=inner&start=1990-03-01&end=2025-05-02"

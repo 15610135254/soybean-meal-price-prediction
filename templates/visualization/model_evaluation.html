@@ -21,6 +21,18 @@
         padding: 10px;
         border-radius: 5px;
     }
+    /* 控制预测对比图表的大小 */
+    #predictionChartContainer {
+        height: 400px;
+        margin: 0 auto;
+        width: 95%;
+        position: relative;
+    }
+    /* 确保图表标题和图例不会太大 */
+    #predictionComparisonChart {
+        height: 100%;
+        width: 100%;
+    }
 </style>
 {% endblock %}
 
@@ -274,6 +286,38 @@
         </div>
     </div>
 
+    <!-- 预测与真实数据对比 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="bi bi-graph-up"></i> 模型在测试集上的预测性能对比</h5>
+                        <div>
+                            <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#predictionComparisonCollapse" aria-expanded="true">
+                                <i class="bi bi-arrows-expand"></i> 展开/折叠
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="collapse show" id="predictionComparisonCollapse">
+                    <div class="card-body">
+                        <div id="predictionChartContainer" style="display: none; height: 400px;">
+                            <canvas id="predictionComparisonChart"></canvas>
+                        </div>
+                        <div id="predictionChartPlaceholder" class="text-center py-5">
+                            <p class="text-muted">
+                                <i class="bi bi-info-circle me-2"></i>
+                                点击"运行评估"按钮查看三种模型在历史测试集上的预测性能对比。系统使用单步预测方法：
+                                <br>每次只预测一天，使用真实历史数据作为输入，这种方法更准确，能够更好地反映模型的实际性能。
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 评估日志 -->
     <div class="row">
         <div class="col-12">
@@ -311,16 +355,13 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // 初始化图表
         initCharts();
 
         const runEvaluationBtn = document.getElementById('runEvaluationBtn');
         const evaluationLog = document.getElementById('evaluationLog');
 
-        // 初始化图表函数
         function initCharts() {
             try {
-                // 获取模型指标数据
                 const modelMetricsElement = document.getElementById('modelMetricsData');
                 if (!modelMetricsElement) {
                     console.error('找不到模型指标数据元素');
@@ -328,9 +369,8 @@
                 }
 
                 const modelMetrics = JSON.parse(modelMetricsElement.textContent);
-                console.log('模型指标数据:', modelMetrics);
 
-                // 初始化准确率比较图表
+                // 准确率比较图表
                 const accuracyCtx = document.getElementById('accuracyChart');
                 if (accuracyCtx) {
                     new Chart(accuracyCtx, {
@@ -382,7 +422,7 @@
                     });
                 }
 
-                // 初始化误差指标比较图表
+                // 误差指标比较图表
                 const errorCtx = document.getElementById('errorChart');
                 if (errorCtx) {
                     new Chart(errorCtx, {
@@ -420,15 +460,223 @@
             }
         }
 
+        let predictionComparisonChart = null;
+
+        function createPredictionComparisonChart(realData, predictions) {
+            const chartContainer = document.getElementById('predictionChartContainer');
+            const chartPlaceholder = document.getElementById('predictionChartPlaceholder');
+            const chartCanvas = document.getElementById('predictionComparisonChart');
+
+            // 检查数据有效性
+            if (!realData || !realData.dates || realData.dates.length === 0) {
+                chartPlaceholder.innerHTML = '<p class="text-warning"><i class="bi bi-exclamation-triangle me-2"></i>无法获取真实数据</p>';
+                chartPlaceholder.style.display = 'block';
+                chartContainer.style.display = 'none';
+                return;
+            }
+
+            const hasAnyPredictions = Object.values(predictions).some(p => p.dates && p.dates.length > 0);
+            if (!hasAnyPredictions) {
+                chartPlaceholder.innerHTML = '<p class="text-warning"><i class="bi bi-exclamation-triangle me-2"></i>所有模型预测失败</p>';
+                chartPlaceholder.style.display = 'block';
+                chartContainer.style.display = 'none';
+                return;
+            }
+
+            chartContainer.style.display = 'block';
+            chartPlaceholder.style.display = 'none';
+
+            if (predictionComparisonChart) {
+                predictionComparisonChart.destroy();
+            }
+
+            // 计算Y轴范围，使用更小的刻度以获得更好的比例
+            let allPrices = [...realData.prices];
+            for (const model in predictions) {
+                if (predictions[model].prices && predictions[model].prices.length > 0) {
+                    allPrices = allPrices.concat(predictions[model].prices);
+                }
+            }
+
+            // 找出最小值和最大值
+            const minValue = Math.min(...allPrices);
+            const maxValue = Math.max(...allPrices);
+
+            // 计算数据范围
+            const dataRange = maxValue - minValue;
+
+            // 使用更小的刻度单位，根据数据范围动态调整
+            let stepSize;
+            if (dataRange > 500) {
+                stepSize = 50; // 大范围使用50的步长
+            } else if (dataRange > 200) {
+                stepSize = 20; // 中等范围使用20的步长
+            } else if (dataRange > 100) {
+                stepSize = 10; // 小范围使用10的步长
+            } else {
+                stepSize = 5;  // 非常小的范围使用5的步长
+            }
+
+            // 计算Y轴的最小值和最大值，留出一些边距
+            const padding = stepSize * 0.5; // 上下各留出半个步长的空间
+            const minPrice = Math.floor((minValue - padding) / stepSize) * stepSize;
+            const maxPrice = Math.ceil((maxValue + padding) / stepSize) * stepSize;
+
+            const datasets = [
+                {
+                    label: '真实数据',
+                    data: realData.prices,
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    borderWidth: 2,
+                    fill: false,
+                    tension: 0.1
+                }
+            ];
+
+            const modelColors = {
+                'mlp': {
+                    border: 'rgba(13, 110, 253, 1)',
+                    background: 'rgba(13, 110, 253, 0.2)'
+                },
+                'lstm': {
+                    border: 'rgba(25, 135, 84, 1)',
+                    background: 'rgba(25, 135, 84, 0.2)'
+                },
+                'cnn': {
+                    border: 'rgba(13, 202, 240, 1)',
+                    background: 'rgba(13, 202, 240, 0.2)'
+                }
+            };
+
+            // 处理预测结果
+            for (const [model, prediction] of Object.entries(predictions)) {
+                if (prediction.dates && prediction.dates.length > 0) {
+                    // 获取模型颜色
+                    const modelColor = modelColors[model] || {
+                        border: 'rgba(128, 128, 128, 1)',
+                        background: 'rgba(128, 128, 128, 0.2)'
+                    };
+
+                    // 创建数据集
+                    datasets.push({
+                        label: `${model.toUpperCase()} 预测`,
+                        data: prediction.prices,
+                        borderColor: modelColor.border,
+                        backgroundColor: modelColor.background,
+                        borderWidth: 2,
+                        fill: false,
+                        tension: 0.1
+                    });
+                }
+            }
+
+            predictionComparisonChart = new Chart(chartCanvas, {
+                type: 'line',
+                data: {
+                    labels: realData.dates,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: '三种模型在历史测试集上的预测性能对比',
+                            font: {
+                                size: 14,
+                                weight: 'bold'
+                            }
+                        },
+                        subtitle: {
+                            display: true,
+                            text: '价格单位：元/吨',
+                            font: {
+                                size: 12
+                            },
+                            padding: {
+                                bottom: 5
+                            }
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed.y !== null) {
+                                        label += context.parsed.y.toFixed(2) + ' 元/吨';
+                                    }
+                                    return label;
+                                }
+                            }
+                        },
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                font: {
+                                    size: 10
+                                },
+                                usePointStyle: true,
+                                pointStyle: 'circle',
+                                boxWidth: 6,
+                                padding: 8
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: '日期',
+                                font: {
+                                    size: 10
+                                }
+                            },
+                            ticks: {
+                                font: {
+                                    size: 9
+                                }
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: '价格 (元/吨)',
+                                font: {
+                                    size: 10
+                                }
+                            },
+                            min: minPrice,
+                            max: maxPrice,
+                            ticks: {
+                                stepSize: stepSize,
+                                font: {
+                                    size: 9
+                                },
+                                callback: function(value) {
+                                    return value.toFixed(0);
+                                }
+                            },
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
         runEvaluationBtn.addEventListener('click', function() {
-            // 禁用按钮，显示加载状态
+            // 显示加载状态
             runEvaluationBtn.disabled = true;
             runEvaluationBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 评估中...';
-
-            // 清空日志区域
             evaluationLog.innerHTML = '<div class="text-info">正在运行模型评估，请稍候...</div>';
 
-            // 发送评估请求
             fetch('/viz/api/run-evaluation', {
                 method: 'POST',
                 headers: {
@@ -437,18 +685,15 @@
             })
             .then(response => response.json())
             .then(data => {
-                // 恢复按钮状态
                 runEvaluationBtn.disabled = false;
                 runEvaluationBtn.innerHTML = '<i class="bi bi-play-circle"></i> 运行评估';
 
                 if (data.success) {
-                    // 显示成功消息
                     evaluationLog.innerHTML = `
                         <div class="text-success mb-3"><i class="bi bi-check-circle"></i> ${data.message}</div>
                         <div class="mb-2"><strong>评估结果:</strong></div>
                     `;
 
-                    // 显示评估结果
                     for (const [model, metrics] of Object.entries(data.metrics)) {
                         evaluationLog.innerHTML += `
                             <div class="mb-2">
@@ -462,23 +707,18 @@
                         `;
                     }
 
-                    // 刷新页面以更新指标显示
-                    setTimeout(() => {
-                        location.reload();
-                    }, 3000);
+                    if (data.real_data && data.predictions) {
+                        createPredictionComparisonChart(data.real_data, data.predictions);
+                    }
                 } else {
-                    // 显示错误消息
                     evaluationLog.innerHTML = `
                         <div class="text-danger"><i class="bi bi-exclamation-triangle"></i> ${data.message}</div>
                     `;
                 }
             })
             .catch(error => {
-                // 恢复按钮状态
                 runEvaluationBtn.disabled = false;
                 runEvaluationBtn.innerHTML = '<i class="bi bi-play-circle"></i> 运行评估';
-
-                // 显示错误消息
                 evaluationLog.innerHTML = `
                     <div class="text-danger"><i class="bi bi-exclamation-triangle"></i> 评估过程中出错: ${error}</div>
                 `;

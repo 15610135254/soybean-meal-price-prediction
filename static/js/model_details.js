@@ -4,10 +4,7 @@
  */
 
 document.addEventListener('DOMContentLoaded', function() {
-    // 初始化模型详情对话框
     initModelDetailsModal();
-
-    // 初始化图表
     initCharts();
 });
 
@@ -15,10 +12,8 @@ document.addEventListener('DOMContentLoaded', function() {
  * 初始化模型详情对话框
  */
 function initModelDetailsModal() {
-    // 获取所有"查看详细结构"按钮
     const viewModelButtons = document.querySelectorAll('.view-model-details');
 
-    // 为每个按钮添加点击事件
     viewModelButtons.forEach(button => {
         button.addEventListener('click', function() {
             const modelType = this.getAttribute('data-model-type');
@@ -32,22 +27,16 @@ function initModelDetailsModal() {
  * @param {string} modelType 模型类型 (mlp, lstm, cnn)
  */
 function openModelDetailsModal(modelType) {
-    // 获取模态框元素
     const modal = new bootstrap.Modal(document.getElementById('modelDetailsModal'));
 
-    // 显示加载状态
     document.getElementById('modelDetailsLoading').classList.remove('d-none');
     document.getElementById('modelDetailsContent').classList.add('d-none');
     document.getElementById('modelDetailsError').classList.add('d-none');
 
-    // 更新模态框标题
     document.getElementById('modelDetailsModalLabel').textContent =
         `${modelType.toUpperCase()} 模型详细信息`;
 
-    // 显示模态框
     modal.show();
-
-    // 从API获取模型详情
     fetchModelDetails(modelType);
 }
 
@@ -60,15 +49,12 @@ function fetchModelDetails(modelType) {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                // 显示模型详情
                 displayModelDetails(data);
             } else {
-                // 显示错误信息
                 showModelDetailsError(data.message);
             }
         })
         .catch(error => {
-            // 显示错误信息
             showModelDetailsError(`获取模型详情时出错: ${error}`);
         });
 }
@@ -78,11 +64,9 @@ function fetchModelDetails(modelType) {
  * @param {Object} data 模型详情数据
  */
 function displayModelDetails(data) {
-    // 隐藏加载状态，显示内容
     document.getElementById('modelDetailsLoading').classList.add('d-none');
     document.getElementById('modelDetailsContent').classList.remove('d-none');
 
-    // 填充基本信息
     document.getElementById('modelName').textContent = data.model_name;
     document.getElementById('modelType').textContent = data.model_type;
     document.getElementById('totalParams').textContent = formatNumber(data.total_params);
@@ -94,10 +78,8 @@ function displayModelDetails(data) {
 
     // 添加模型架构描述（如果存在）
     if (data.architecture_description) {
-        // 检查是否已存在架构描述元素
         let architectureDescriptionElement = document.getElementById('architectureDescription');
         if (!architectureDescriptionElement) {
-            // 创建架构描述元素
             const basicInfoTable = document.querySelector('#modelDetailsContent .row .col-md-6:first-child .card-body table');
             const architectureRow = document.createElement('tr');
             architectureRow.innerHTML = `
@@ -108,7 +90,6 @@ function displayModelDetails(data) {
             architectureDescriptionElement = document.getElementById('architectureDescription');
         }
 
-        // 设置架构描述内容
         architectureDescriptionElement.innerHTML = data.architecture_description.replace(/\n/g, '<br>').trim();
     }
 
@@ -132,7 +113,6 @@ function displayModelDetails(data) {
         if (layer.regularizer) configInfo += `正则化: ${layer.regularizer}<br>`;
         if (layer.recurrent_dropout) configInfo += `循环丢弃率: ${layer.recurrent_dropout}<br>`;
 
-        // 填充行内容
         row.innerHTML = `
             <td>${index + 1}</td>
             <td>${layer.name}</td>
@@ -146,7 +126,6 @@ function displayModelDetails(data) {
         layersTable.appendChild(row);
     });
 
-    // 更新图表
     updateModelMetricsChart(data.model_type.toLowerCase());
 }
 
@@ -266,12 +245,10 @@ function updateModelMetricsChart(modelType) {
         const modelMetrics = JSON.parse(document.getElementById('modelMetricsData').textContent);
         const metrics = modelMetrics[modelType];
 
-        // 清除现有图表
         if (chartCtx.chart) {
             chartCtx.chart.destroy();
         }
 
-        // 创建新图表
         chartCtx.chart = new Chart(chartCtx, {
             type: 'radar',
             data: {

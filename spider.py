@@ -1,4 +1,3 @@
-
 import requests
 from bs4 import BeautifulSoup
 import json
@@ -46,12 +45,11 @@ def extract_publish_time(container, url):
     return ""
 
 def get_news_content(url, title, max_retries=2):
-    """尝试获取新闻内容，如果失败则返回标题作为内容"""
+    """获取新闻内容"""
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36'
     }
 
-    # 可能的编码列表
     encodings = ['utf-8', 'gbk', 'gb2312', 'gb18030', 'big5', 'latin1']
 
     for attempt in range(max_retries):
@@ -59,14 +57,12 @@ def get_news_content(url, title, max_retries=2):
             response = requests.get(url, headers=headers, timeout=5)
             response.raise_for_status()
 
-            # 尝试检测编码
             content_type = response.headers.get('Content-Type', '').lower()
             if 'charset=' in content_type:
                 detected_encoding = content_type.split('charset=')[-1].strip()
                 if detected_encoding:
                     encodings.insert(0, detected_encoding)
 
-            # 尝试不同的编码
             html_text = None
             for encoding in encodings:
                 try:
@@ -75,85 +71,69 @@ def get_news_content(url, title, max_retries=2):
                 except UnicodeDecodeError:
                     continue
 
-            # 如果所有编码都失败，使用默认的response.text
             if html_text is None:
                 html_text = response.text
 
             soup = BeautifulSoup(html_text, 'html.parser')
 
-            # 尝试找到文章内容
             content_selectors = [
                 'article', '.article-content', '.news-content', '.content',
                 '.article-body', '.news-text', '.article-text', '.news-detail',
                 '.article', '#article', '.main-content', '.main-article'
             ]
 
-            # 尝试从段落中提取内容
             for selector in content_selectors:
                 content_element = soup.select_one(selector)
                 if content_element:
-                    # 获取段落文本
                     paragraphs = content_element.find_all('p')
                     if paragraphs:
-                        # 尝试获取前3个有意义的段落
                         valid_paragraphs = []
                         for p in paragraphs:
                             text = p.get_text(strip=True)
-                            if text and len(text) > 15:  # 只保留有意义的段落
+                            if text and len(text) > 15:
                                 valid_paragraphs.append(text)
                             if len(valid_paragraphs) >= 3:
                                 break
 
                         if valid_paragraphs:
                             content = ' '.join(valid_paragraphs)
-                            # 检查内容是否包含乱码
                             if not is_gibberish(content):
-                                return content[:500]  # 限制内容长度
+                                return content[:500]
 
-            # 如果找不到内容，尝试获取meta描述
             meta_desc = soup.find('meta', attrs={'name': 'description'})
             if meta_desc and meta_desc.get('content'):
                 content = meta_desc.get('content')
                 if not is_gibberish(content):
                     return content[:500]
 
-            # 尝试从整个页面提取文本
             body_text = soup.body.get_text(strip=True) if soup.body else ""
             if body_text and len(body_text) > 50 and not is_gibberish(body_text):
-                # 提取一个合理长度的片段
                 sentences = body_text.split('。')
                 content = '。'.join(sentences[:3]) + '。' if sentences else body_text[:500]
                 return content[:500]
 
         except Exception as e:
             if attempt < max_retries - 1:
-                time.sleep(1)  # 短暂延迟后重试
+                time.sleep(1)
             else:
                 print(f"获取新闻内容失败: {str(e)}")
 
-    # 如果无法获取内容，返回标题作为内容
     return f"{title}。这是一条关于豆粕期货市场的重要新闻。"
 
+# 检查文本是否为乱码
 def is_gibberish(text):
-    """检查文本是否为乱码"""
-    # 检查乱码特征
     if not text:
         return True
 
-    # 检查是否包含过多的特殊字符
     special_chars = sum(1 for c in text if not c.isalnum() and not c.isspace())
     if special_chars / len(text) > 0.5:
         return True
 
-    # 检查是否包含过多的问号或方块字符（通常表示编码问题）
-    if text.count('�') > 5 or text.count('?') > len(text) * 0.2:
+    if text.count('') > 5 or text.count('?') > len(text) * 0.2:
         return True
 
-    # 检查中文文本是否正常
     if any('\u4e00' <= c <= '\u9fff' for c in text):
-        # 中文文本应该有合理的标点符号和空格
         if text.count('。') == 0 and text.count('，') == 0 and text.count('、') == 0:
-            # 没有常见中文标点，可能是乱码
             return True
 
     return False
@@ -248,30 +228,17 @@ def get_news_info(url, max_retries=3, retry_delay=2):
                                 }
                                 raw_news_list.append(raw_news)
 
-            # 转换为news.json格式
             news_info_list = []
             for i, news in enumerate(raw_news_list):
-                # 获取新闻内容
                 content = get_news_content(news['url'], news['title'])
 
-                # 检查内容是否为乱码，如果是则使用标题作为内容
                 if is_gibberish(content):
                     content = f"{news['title']}。这是一条关于豆粕期货市场的重要新闻。"
-
-                # 默认分类为"市场动态"
                 category = "market"
                 category_name = "市场动态"
-
-                # 是否为头条新闻（第一条设为头条）
                 is_featured = (i == 0)
-
-                # 随机浏览量
                 views = random.randint(1000, 3500)
-
-                # 新闻来源
-                source = "豆粕期货资讯"
-
-                # 创建符合news.json格式的新闻对象
+                source = "网络"
                 news_info = {
                     'id': i + 1,
                     'title': news['title'],
@@ -282,7 +249,7 @@ def get_news_info(url, max_retries=3, retry_delay=2):
                     'source': source,
                     'views': views,
                     'is_featured': is_featured,
-                    'url': news['url']  # 添加原始URL以便点击跳转
+                    'url': news['url']
                 }
                 news_info_list.append(news_info)
 
@@ -301,9 +268,8 @@ def get_news_info(url, max_retries=3, retry_delay=2):
                 return []
 
 def save_to_file(data, filename):
-    """保存数据到指定文件"""
+    """保存数据到文件"""
     try:
-        # 确保目录存在
         directory = os.path.dirname(filename)
         if directory and not os.path.exists(directory):
             os.makedirs(directory, exist_ok=True)
@@ -317,6 +283,7 @@ def save_to_file(data, filename):
         return False
 
 def print_usage():
+    """显示使用说明"""
     print("使用方法:")
     print("python3 spider.py [URL] [输出文件名]")
     print("示例:")
@@ -325,7 +292,7 @@ def print_usage():
 
 def main():
     url = None
-    output_file = 'data/news.json'  # 默认输出到data/news.json
+    output_file = 'data/news.json'
 
     if len(sys.argv) > 1:
         if sys.argv[1] in ['-h', '--help', 'help']:
@@ -347,11 +314,9 @@ def main():
     if news_info_list:
         print(f"成功获取 {len(news_info_list)} 条新闻")
 
-        # 保存为news.json格式
         if save_to_file(news_info_list, output_file):
             print(f"新闻数据已保存到 {output_file}")
 
-            # 同时保存一份到news_info.json（向后兼容）
             if output_file != 'news_info.json':
                 save_to_file(news_info_list, 'news_info.json')
     else:

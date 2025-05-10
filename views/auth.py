@@ -4,6 +4,7 @@ import json
 import logging
 from functools import wraps
 from datetime import datetime
+from views.data_utils import reset_data_file_path
 
 # 设置日志记录
 logging.basicConfig(level=logging.INFO)
@@ -146,6 +147,9 @@ def login():
             session['user_id'] = user['id']
             session['username'] = user['username']
             session['user_role'] = user['role']
+
+            # 重置数据文件路径为默认值
+            reset_data_file_path()
 
             flash(f'欢迎回来，{username}！', 'success')
             return redirect(url_for('main.index'))

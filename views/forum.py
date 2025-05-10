@@ -5,6 +5,7 @@ import json
 import logging
 from datetime import datetime
 import time
+from views.data_utils import reset_data_file_path
 
 # 设置日志记录
 logging.basicConfig(level=logging.INFO)
@@ -377,42 +378,37 @@ def save_data(file_path, data):
         logger.error(f"保存数据时出错: {e}")
         return False
 
+def get_created_at(x):
+    return x.get('created_at', '')
+
+def get_replies(x):
+    return x.get('replies', 0)
+
 @bp.route('/')
 @login_required
 def index():
     """论坛首页（需要登录）"""
-    # 获取分类过滤参数
-    category = request.args.get('category', 'all')
+    reset_data_file_path()
 
-    # 加载主题数据
+    category = request.args.get('category', 'all')
     topics = load_data(TOPICS_FILE, SAMPLE_TOPICS)
 
-    # 根据分类过滤主题
     if category != 'all':
         filtered_topics = [topic for topic in topics if topic['category'] == category]
     else:
         filtered_topics = topics
 
-    # 获取公告
     announcements = [topic for topic in topics if topic.get('is_announcement')]
-
-    # 获取热门主题
     hot_topics = [topic for topic in topics if topic.get('is_hot')]
-
-    # 获取最新主题（非公告、非热门）
     latest_topics = [
         topic for topic in topics
         if not topic.get('is_announcement') and not topic.get('is_hot')
     ]
-    latest_topics.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+    latest_topics.sort(key=get_created_at, reverse=True)
 
-    # 加载用户数据
     users = load_data(USERS_FILE, SAMPLE_USERS)
+    active_users = sorted(users, key=get_replies, reverse=True)[:6]
 
-    # 获取活跃用户（按回复数排序）
-    active_users = sorted(users, key=lambda x: x.get('replies', 0), reverse=True)[:6]
-
-    # 论坛统计
     forum_stats = {
         "topics": len(topics),
         "replies": sum(topic.get('replies', 0) for topic in topics),
@@ -435,36 +431,24 @@ def index():
 @login_required
 def topic(topic_id):
     """主题详情页（需要登录）"""
-    # 加载主题数据
     topics = load_data(TOPICS_FILE, SAMPLE_TOPICS)
-
-    # 查找指定ID的主题
     topic = next((t for t in topics if t['id'] == topic_id), None)
 
     if not topic:
-        # 如果找不到主题，返回404
         return render_template('404.html'), 404
 
-    # 增加浏览量
     topic['views'] = topic.get('views', 0) + 1
     save_data(TOPICS_FILE, topics)
 
-    # 加载回复数据
     replies = load_data(REPLIES_FILE, SAMPLE_REPLIES)
-
-    # 获取该主题的回复
     topic_replies = [reply for reply in replies if reply['topic_id'] == topic_id]
+    topic_replies.sort(key=get_created_at)
 
-    # 按时间排序
-    topic_replies.sort(key=lambda x: x.get('created_at', ''))
-
-    # 获取相关主题（同类别的其他主题）
     related_topics = [
         t for t in topics
         if t['category'] == topic['category'] and t['id'] != topic_id
     ][:3]
 
-    # 获取用户信息
     users = load_data(USERS_FILE, SAMPLE_USERS)
     user = next((u for u in users if u['id'] == topic['user_id']), {
         'posts': 0,
@@ -623,16 +607,12 @@ def reply(topic_id):
 @bp.route('/search')
 def search():
     """搜索主题"""
-    # 获取搜索关键词
     keyword = request.args.get('keyword', '')
 
     if not keyword:
         return jsonify({'error': '请输入搜索关键词'}), 400
 
-    # 加载主题数据
     topics = load_data(TOPICS_FILE, SAMPLE_TOPICS)
-
-    # 搜索标题和内容中包含关键词的主题
     search_results = [
         topic for topic in topics
         if keyword.lower() in topic['title'].lower() or keyword.lower() in topic['content'].lower()

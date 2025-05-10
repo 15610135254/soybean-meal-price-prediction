@@ -59,18 +59,16 @@
             </div>
             <div class="card-body">
                 <ul class="list-unstyled">
+                    {% for news in latest_news %}
                     <li class="mb-2">
-                        <a href="{{ url_for('news.detail', news_id=1) }}" class="text-decoration-none">中国大豆进口量创新高，豆粕价格承压</a>
-                        <div class="small text-muted">2023-05-03</div>
+                        {% if news.url %}
+                            <a href="{{ news.url }}" target="_blank" class="text-decoration-none">{{ news.title }} <i class="bi bi-box-arrow-up-right small"></i></a>
+                        {% else %}
+                            <a href="{{ url_for('news.detail', news_id=news.id) }}" class="text-decoration-none">{{ news.title }}</a>
+                        {% endif %}
+                        <div class="small text-muted">{{ news.date }}</div>
                     </li>
-                    <li class="mb-2">
-                        <a href="{{ url_for('news.detail', news_id=2) }}" class="text-decoration-none">全球大豆产量预测报告发布，市场波动加剧</a>
-                        <div class="small text-muted">2023-05-02</div>
-                    </li>
-                    <li class="mb-2">
-                        <a href="{{ url_for('news.detail', news_id=3) }}" class="text-decoration-none">饲料需求增长，豆粕期货价格有望上涨</a>
-                        <div class="small text-muted">2023-05-01</div>
-                    </li>
+                    {% endfor %}
                 </ul>
                 <a href="{{ url_for('news.index') }}" class="btn btn-sm btn-outline-primary">查看更多</a>
             </div>

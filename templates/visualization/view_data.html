@@ -729,38 +729,18 @@
     // 获取 canvas 元素
     const ctx = document.getElementById('closingPriceChart').getContext('2d');
 
-    // 检查Chart.js和插件是否正确加载
     try {
-        // console.log("Chart.js 版本:", Chart.version);
-
-        // 检查插件是否已经注册
-        const registeredPlugins = Chart.registry.plugins.items;
-        // console.log("已注册的插件:", registeredPlugins);
-
-        // 检查是否需要手动注册插件
         const hasAnnotationPlugin = Chart.registry.plugins.get('annotation') !== undefined;
-        if (!hasAnnotationPlugin) {
-            // console.log("尝试手动注册 annotation 插件");
-            if (window.ChartAnnotation) {
-                Chart.register(window.ChartAnnotation);
-                // console.log("成功注册 annotation 插件");
-            } else {
-                // console.warn("找不到 ChartAnnotation 对象");
-            }
+        if (!hasAnnotationPlugin && window.ChartAnnotation) {
+            Chart.register(window.ChartAnnotation);
         }
 
         const hasZoomPlugin = Chart.registry.plugins.get('zoom') !== undefined;
-        if (!hasZoomPlugin) {
-            // console.log("尝试手动注册 zoom 插件");
-            if (window.ChartZoom) {
-                Chart.register(window.ChartZoom);
-                // console.log("成功注册 zoom 插件");
-            } else {
-                // console.warn("找不到 ChartZoom 对象");
-            }
+        if (!hasZoomPlugin && window.ChartZoom) {
+            Chart.register(window.ChartZoom);
         }
     } catch (e) {
-        // console.error("检查Chart.js插件时出错:", e);
+        console.error(e);
     }
 
     // 隐藏加载指示器，显示图表
@@ -2135,6 +2115,12 @@
                     labels = data.chart_data.labels;
                     closingPrices = data.chart_data.closing_prices;
 
+                    // 更新显示的总数据条数
+                    const countDisplay = document.getElementById('dataCountDisplay');
+                    if (countDisplay) {
+                        countDisplay.textContent = `只显示前5条，共 ${data.rows} 条`;
+                    }
+
                     // 根据时间范围过滤数据
                     const timeRange = document.getElementById('timeRangeSelect').value;
                     const filteredData = filterDataByTimeRange(timeRange);
@@ -2171,7 +2157,13 @@
                 uploadStatusText.textContent = data.error || '上传失败';
                 uploadProgressBar.classList.remove('bg-primary');
                 uploadProgressBar.classList.add('bg-danger');
-                showNotification('上传失败: ' + (data.error || '未知错误'), 'danger');
+
+                // 特殊处理"数据重复"的错误消息
+                if (data.error && data.error.includes('数据重复')) {
+                    showNotification(data.error, 'warning');
+                } else {
+                    showNotification('上传失败: ' + (data.error || '未知错误'), 'danger');
+                }
             }
         })
         .catch(error => {
@@ -2355,6 +2347,12 @@
                     labels = data.chart_data.labels;
                     closingPrices = data.chart_data.closing_prices;
 
+                    // 更新显示的总数据条数
+                    const countDisplay = document.getElementById('dataCountDisplay');
+                    if (countDisplay) {
+                        countDisplay.textContent = `只显示前5条，共 ${data.rows} 条`;
+                    }
+
                     // 详细记录数据变化，检查是否更换了数据集
                     // console.log("编辑前数据信息:", {
                     //     "日期数量": oldLabelsLength,
@@ -2496,6 +2494,12 @@
                     chartData = data.chart_data;
                     labels = data.chart_data.labels;
                     closingPrices = data.chart_data.closing_prices;
+
+                    // 更新显示的总数据条数
+                    const countDisplay = document.getElementById('dataCountDisplay');
+                    if (countDisplay) {
+                        countDisplay.textContent = `只显示前5条，共 ${data.rows} 条`;
+                    }
 
                     // 根据时间范围过滤数据
                     const timeRange = document.getElementById('timeRangeSelect').value;
@@ -2847,6 +2851,12 @@
                     labels = data.chart_data.labels;
                     closingPrices = data.chart_data.closing_prices;
 
+                    // 更新显示的总数据条数
+                    const countDisplay = document.getElementById('dataCountDisplay');
+                    if (countDisplay) {
+                        countDisplay.textContent = `只显示前5条，共 ${data.total_rows} 条`;
+                    }
+
                     // 根据时间范围过滤数据
                     const timeRange = document.getElementById('timeRangeSelect').value;
                     const filteredData = filterDataByTimeRange(timeRange);
@@ -2887,7 +2897,13 @@
                 appendStatusText.textContent = data.error || '添加失败';
                 appendProgressBar.classList.remove('bg-primary');
                 appendProgressBar.classList.add('bg-danger');
-                showNotification('添加失败: ' + (data.error || '未知错误'), 'danger');
+
+                // 特殊处理"数据重复"的错误消息
+                if (data.error && data.error.includes('数据重复')) {
+                    showNotification(data.error, 'warning');
+                } else {
+                    showNotification('添加失败: ' + (data.error || '未知错误'), 'danger');
+                }
             }
         })
         .catch(error => {

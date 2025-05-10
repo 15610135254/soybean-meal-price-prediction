@@ -7,8 +7,7 @@ import logging
 from tensorflow.keras.models import load_model
 from sklearn.preprocessing import MinMaxScaler
 
-# 配置日志
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# 获取日志记录器
 logger = logging.getLogger(__name__)
 
 # --- 配置 ---
@@ -19,23 +18,7 @@ SCALER_DIR = "scalers"  # 标准化器目录
 TRAINING_SCALER_DIR = "models/training_scripts/scalers"  # 训练脚本中的标准化器目录
 TARGET_COL = 'close'  # 目标列
 
-def get_latest_data_file():
-    """获取数据文件路径，优先使用默认数据文件"""
-    if os.path.exists(DEFAULT_DATA_FILE):
-        logger.info(f"使用默认数据文件: {DEFAULT_DATA_FILE}")
-        return DEFAULT_DATA_FILE
-
-    # 如果默认文件不存在，查找model_data和data目录下的所有CSV文件
-    data_files = glob.glob("model_data/*.csv") + glob.glob("data/*.csv")
-
-    if not data_files:
-        logger.warning(f"未找到任何CSV文件，使用默认文件路径: {DEFAULT_DATA_FILE}")
-        return DEFAULT_DATA_FILE
-
-    # 按文件修改时间排序，返回最新的文件
-    latest_file = max(data_files, key=os.path.getmtime)
-    logger.info(f"默认数据文件不存在，使用最新的数据文件: {latest_file}")
-    return latest_file
+# 使用 views.data_utils 中的函数替代此功能
 
 # 指定要使用的模型文件
 MODEL_FILES = {
@@ -371,14 +354,15 @@ def predict_with_model(model_type, days=1, data_file=None):
     参数:
         model_type: 模型类型 (MLP, LSTM, CNN)
         days: 预测天数
-        data_file: 数据文件路径，如果为None则使用get_latest_data_file()获取
+        data_file: 数据文件路径，如果为None则使用默认数据文件
     """
     logger.info(f"使用 {model_type.upper()} 模型预测未来 {days} 天的价格")
 
     try:
         # 1. 加载数据
         if data_file is None:
-            data_file = get_latest_data_file()
+            # 使用默认数据文件
+            data_file = DEFAULT_DATA_FILE
 
         logger.info(f"使用数据文件: {data_file}")
 
@@ -445,8 +429,6 @@ def predict_with_model(model_type, days=1, data_file=None):
             return {'error': f'加载模型失败: {str(e)}'}
 
         # 9. 进行预测
-        predictions = []
-        prediction_dates = []
 
         # 获取最后一天的日期
         if 'date' in df.columns:
@@ -467,44 +449,94 @@ def predict_with_model(model_type, days=1, data_file=None):
 
         target_scaler = joblib.load(target_scaler_path)
 
-        # 使用当前数据进行第一次预测
-        current_input = X_predict
+        # 只使用单步预测方法
+        # 单步预测：每次只预测一天，使用真实数据作为输入
+        # 这种方法更准确，能够更好地反映模型的实际性能
+        predictions = []
+        prediction_dates = []
 
-        for i in range(days):
-            # 预测下一天
-            prediction_scaled = model.predict(current_input, verbose=0)
-            prediction = target_scaler.inverse_transform(prediction_scaled)[0][0]
+        # 检查数据集是否足够长
+        if len(df) >= LOOK_BACK + days:
+            # 获取用于预测的数据（包括训练集的最后LOOK_BACK天和测试集）
+            prediction_data = df.iloc[-(LOOK_BACK + days):]
 
-            # 计算下一天的日期
-            next_date = last_date + pd.Timedelta(days=i+1)
+            # 对于每一天进行预测
+            for i in range(days):
+                # 获取当前时间窗口的数据
+                window_data = prediction_data.iloc[i:i+LOOK_BACK][features].values
 
-            # 保存预测结果
-            predictions.append(float(prediction))
-            prediction_dates.append(next_date.strftime('%Y-%m-%d'))
-
-            # 准备下一次预测的输入
-            if i < days - 1:  # 不需要为最后一天准备下一次预测
-                # 获取当前输入的最后一天（除去第一天）
-                next_input = current_input[0, 1:, :]
-
-                # 创建新的一天数据（复制最后一天的特征，但更新目标值）
-                new_day = np.copy(next_input[-1:, :])
-
-                # 更新目标值（假设目标值是第一个特征）
-                new_day_scaled = np.copy(new_day)
-                new_day_scaled[0, 0] = prediction_scaled[0][0]
-
-                # 合并数据
-                next_input = np.vstack([next_input, new_day_scaled])
+                # 标准化数据
+                normalized_window = normalize_data(window_data, feature_scaler_path)
+                if normalized_window is None:
+                    logger.error(f"无法标准化第 {i+1} 天的数据")
+                    continue
 
                 # 重塑为模型输入格式
-                current_input = np.reshape(next_input, (1, LOOK_BACK, len(features)))
+                X_window = np.reshape(normalized_window, (1, LOOK_BACK, len(features)))
 
-        logger.info(f"预测完成，共 {len(predictions)} 天")
+                # 预测
+                try:
+                    prediction_scaled = model.predict(X_window, verbose=0)
+                    prediction = target_scaler.inverse_transform(prediction_scaled)[0][0]
 
+                    # 获取对应的日期
+                    pred_date = prediction_data.iloc[i+LOOK_BACK]['date']
+                    if isinstance(pred_date, str):
+                        pred_date = pd.to_datetime(pred_date)
+
+                    # 保存预测结果
+                    predictions.append(float(prediction))
+                    prediction_dates.append(pred_date.strftime('%Y-%m-%d'))
+                except Exception as e:
+                    logger.error(f"预测第 {i+1} 天时出错: {e}")
+
+            logger.info(f"单步预测完成，共 {len(predictions)} 天")
+        else:
+            # 如果数据不足，使用简单的递归预测作为备选方案
+            logger.warning(f"数据不足，无法进行完整的单步预测，需要至少 {LOOK_BACK + days} 条记录")
+            logger.warning(f"将使用简单的递归预测作为备选方案")
+
+            # 使用当前数据进行第一次预测
+            current_input = X_predict
+
+            for i in range(days):
+                # 预测下一天
+                prediction_scaled = model.predict(current_input, verbose=0)
+                prediction = target_scaler.inverse_transform(prediction_scaled)[0][0]
+
+                # 计算下一天的日期
+                next_date = last_date + pd.Timedelta(days=i+1)
+
+                # 保存预测结果
+                predictions.append(float(prediction))
+                prediction_dates.append(next_date.strftime('%Y-%m-%d'))
+
+                # 准备下一次预测的输入
+                if i < days - 1:  # 不需要为最后一天准备下一次预测
+                    # 获取当前输入的最后一天（除去第一天）
+                    next_input = current_input[0, 1:, :]
+
+                    # 创建新的一天数据（复制最后一天的特征，但更新目标值）
+                    new_day = np.copy(next_input[-1:, :])
+
+                    # 更新目标值（假设目标值是第一个特征）
+                    new_day_scaled = np.copy(new_day)
+                    new_day_scaled[0, 0] = prediction_scaled[0][0]
+
+                    # 合并数据
+                    next_input = np.vstack([next_input, new_day_scaled])
+
+                    # 重塑为模型输入格式
+                    current_input = np.reshape(next_input, (1, LOOK_BACK, len(features)))
+
+            logger.info(f"备选预测完成，共 {len(predictions)} 天")
+
+        # 返回预测结果
+        logger.info(f"返回预测结果，共 {len(predictions)} 天")
         return {
             'dates': prediction_dates,
-            'prices': predictions
+            'prices': predictions,
+            'prediction_type': 'single_step'
         }
 
     except Exception as e:
