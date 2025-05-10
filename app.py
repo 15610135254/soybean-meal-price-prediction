@@ -6,15 +6,8 @@ import os
 db = SQLAlchemy()
 
 def create_app(config_class=Config):
-    """应用工厂函数"""
     app = Flask(__name__, instance_relative_config=True)
     app.config.from_object(config_class)
-
-    # 确保 instance 文件夹存在
-    try:
-        os.makedirs(app.instance_path)
-    except OSError:
-        pass
 
     # 初始化数据库
     db.init_app(app)

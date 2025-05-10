@@ -54,7 +54,6 @@ def get_views(x):
     return x.get('views', 0)
 
 def load_news_data():
-    """加载新闻数据"""
     try:
         # 获取当前文件所在目录
         current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -72,7 +71,6 @@ def load_news_data():
         return SAMPLE_NEWS
 
 def save_news_data(news_data):
-    """保存新闻数据"""
     try:
         # 获取当前文件所在目录
         current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -93,7 +91,6 @@ def save_news_data(news_data):
 @bp.route('/')
 @login_required
 def index():
-    """新闻资讯首页（需要登录）"""
     # 重置数据文件路径为默认值
     reset_data_file_path()
 
@@ -117,7 +114,6 @@ def index():
 @bp.route('/detail/<int:news_id>')
 @login_required
 def detail(news_id):
-    """新闻详情页（需要登录）"""
     news_data = load_news_data()
     news_item = next((news for news in news_data if news['id'] == news_id), None)
 
@@ -143,7 +139,6 @@ def detail(news_id):
 
 @bp.route('/search')
 def search():
-    """搜索新闻"""
     # 获取搜索关键词
     keyword = request.args.get('keyword', '')
 
@@ -168,14 +163,10 @@ def search():
 
 @bp.route('/api/subscribe', methods=['POST'])
 def subscribe():
-    """订阅新闻通讯"""
     email = request.form.get('email')
 
     if not email:
         return jsonify({'success': False, 'message': '请输入有效的邮箱地址'}), 400
-
-    # 这里应该有保存订阅者邮箱的逻辑
-    # 简单起见，我们只返回成功消息
 
     return jsonify({
         'success': True,

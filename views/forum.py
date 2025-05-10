@@ -1,10 +1,10 @@
-from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash, session
-from views.auth import login_required
 import os
 import json
 import logging
 from datetime import datetime
 import time
+from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash, session
+from views.auth import login_required
 from views.data_utils import reset_data_file_path
 
 # 设置日志记录
@@ -336,7 +336,6 @@ SAMPLE_REPLIES = [
 ]
 
 def load_data(file_path, default_data=None):
-    """加载数据文件"""
     try:
         # 获取当前文件所在目录
         current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -360,7 +359,6 @@ def load_data(file_path, default_data=None):
         return default_data or []
 
 def save_data(file_path, data):
-    """保存数据到文件"""
     try:
         # 获取当前文件所在目录
         current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -387,7 +385,6 @@ def get_replies(x):
 @bp.route('/')
 @login_required
 def index():
-    """论坛首页（需要登录）"""
     reset_data_file_path()
 
     category = request.args.get('category', 'all')
@@ -430,7 +427,6 @@ def index():
 @bp.route('/topic/<int:topic_id>')
 @login_required
 def topic(topic_id):
-    """主题详情页（需要登录）"""
     topics = load_data(TOPICS_FILE, SAMPLE_TOPICS)
     topic = next((t for t in topics if t['id'] == topic_id), None)
 
@@ -467,13 +463,11 @@ def topic(topic_id):
 @bp.route('/new')
 @login_required
 def new_topic():
-    """发布新主题页面（需要登录）"""
     return render_template('forum/new_topic.html')
 
 @bp.route('/create', methods=['POST'])
 @login_required
 def create_topic():
-    """创建新主题（需要登录）"""
     # 获取表单数据
     category = request.form.get('category')
     title = request.form.get('title')
@@ -482,7 +476,6 @@ def create_topic():
 
     # 验证数据
     if not category or not title or not content:
-        # 如果数据不完整，返回错误
         return jsonify({'success': False, 'message': '请填写完整信息'}), 400
 
     # 加载主题数据
@@ -507,8 +500,8 @@ def create_topic():
         'content': content,
         'category': category,
         'category_name': category_name,
-        'user_id': 2,  # 假设当前用户ID为2
-        'username': '交易达人',  # 假设当前用户名为"交易达人"
+        'user_id': 2,  
+        'username': '交易达人',  
         'avatar': 'https://via.placeholder.com/40',
         'created_at': datetime.now().strftime('%Y-%m-%d'),
         'updated_at': datetime.now().strftime('%Y-%m-%d'),
@@ -531,7 +524,7 @@ def create_topic():
     # 更新用户发帖数
     users = load_data(USERS_FILE, SAMPLE_USERS)
     for user in users:
-        if user['id'] == 2:  # 假设当前用户ID为2
+        if user['id'] == 2:  
             user['posts'] = user.get('posts', 0) + 1
             user['last_active'] = datetime.now().strftime('%Y-%m-%d')
             break
@@ -542,13 +535,11 @@ def create_topic():
 
 @bp.route('/reply/<int:topic_id>', methods=['POST'])
 def reply(topic_id):
-    """回复主题"""
     # 获取表单数据
     content = request.form.get('content')
 
     # 验证数据
     if not content:
-        # 如果数据不完整，返回错误
         return jsonify({'success': False, 'message': '回复内容不能为空'}), 400
 
     # 加载主题数据
@@ -558,7 +549,6 @@ def reply(topic_id):
     topic = next((t for t in topics if t['id'] == topic_id), None)
 
     if not topic:
-        # 如果找不到主题，返回错误
         return jsonify({'success': False, 'message': '主题不存在'}), 404
 
     # 加载回复数据
@@ -571,8 +561,8 @@ def reply(topic_id):
     new_reply = {
         'id': new_id,
         'topic_id': topic_id,
-        'user_id': 2,  # 假设当前用户ID为2
-        'username': '交易达人',  # 假设当前用户名为"交易达人"
+        'user_id': 2,  
+        'username': '交易达人',  
         'avatar': 'https://via.placeholder.com/40',
         'content': content,
         'created_at': datetime.now().strftime('%Y-%m-%d %H:%M'),
@@ -595,7 +585,7 @@ def reply(topic_id):
     # 更新用户回复数
     users = load_data(USERS_FILE, SAMPLE_USERS)
     for user in users:
-        if user['id'] == 2:  # 假设当前用户ID为2
+        if user['id'] == 2:  
             user['replies'] = user.get('replies', 0) + 1
             user['last_active'] = datetime.now().strftime('%Y-%m-%d')
             break
@@ -606,7 +596,6 @@ def reply(topic_id):
 
 @bp.route('/search')
 def search():
-    """搜索主题"""
     keyword = request.args.get('keyword', '')
 
     if not keyword:

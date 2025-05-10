@@ -120,9 +120,9 @@
                 <div class="card-body text-center">
                     <h5 class="card-title">模型准确率</h5>
                     <div class="progress mb-3" style="height: 25px;">
-                        <div class="progress-bar bg-success" role="progressbar" style="width: 87%;" aria-valuenow="87" aria-valuemin="0" aria-valuemax="100">87%</div>
+                        <div id="model-accuracy-bar" class="progress-bar bg-success" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
                     </div>
-                    <p class="text-muted">基于LSTM模型历史表现</p>
+                    <p class="text-muted" id="model-description">加载中...</p>
                 </div>
             </div>
         </div>
@@ -602,60 +602,68 @@
         // 显示加载状态
         isLoading = true;
         showLoadingState(true);
+        console.log(`Fetching prediction for model: ${model}, days: ${days}`);
 
         try {
-            // 构建API URL (考虑蓝图前缀)
             const apiUrl = `/viz/api/predict?model=${model}&days=${days}`;
-
-            // 发送请求
             const response = await fetch(apiUrl);
 
-            // 检查响应状态
             if (!response.ok) {
-                throw new Error(`预测请求失败: ${response.status} ${response.statusText}`);
+                const errorData = await response.json().catch(() => ({ error: `预测请求失败: ${response.status} ${response.statusText}` }));
+                throw new Error(errorData.error || `预测请求失败: ${response.status} ${response.statusText}`);
             }
 
-            // 解析响应数据
             const data = await response.json();
+            console.log("Raw API Response:", data);
 
-            // 更新预测数据
-            predictionLabels = data.dates || [];
-            predictionPrices = data.prices || [];
+            // 检查后端是否返回错误
+            if (data.error) {
+                throw new Error(data.error);
+            }
 
-            // console.log(`成功获取 ${model} 模型的预测数据:`, data);
+            // 从 data.predictions 获取预测价格列表
+            // 后端返回的 data.predictions 是一个数字列表，例如 [3500.0, 3510.0]
+            // data.model_loaded 包含实际加载的模型名称
+            // data.num_predictions 包含预测的数量
+
+            // 确保 predictions 是一个数组
+            const predictions = Array.isArray(data.predictions) ? data.predictions : [];
+            const modelLoaded = data.model_loaded || '未知模型';
+
+            console.log(`成功获取 ${modelLoaded} 模型的预测数据:`, predictions);
+
+            // 生成预测日期标签
+            // 使用当前过滤的数据，而不是初始过滤的数据
+            const currentFilteredData = filterDataByTimeRange(document.getElementById('timeRangeSelect').value);
+            const lastHistoryDate = currentFilteredData.filteredLabels.length > 0 ?
+                                  new Date(currentFilteredData.filteredLabels[currentFilteredData.filteredLabels.length - 1]) :
+                                  new Date(); // 如果没有历史数据，则从今天开始
+
+            const futureLabels = [];
+            for (let i = 1; i <= predictions.length; i++) {
+                const nextDate = new Date(lastHistoryDate);
+                nextDate.setDate(lastHistoryDate.getDate() + i);
+                futureLabels.push(nextDate.toISOString().split('T')[0]);
+            }
 
             return {
-                labels: predictionLabels,
-                prices: predictionPrices
+                prices: predictions, // 直接返回价格数组
+                labels: futureLabels, // 添加预测日期标签
+                model_loaded: modelLoaded,
+                error: null
             };
         } catch (error) {
-            // console.error('获取预测数据时出错:', error);
-            // 在出错时返回空数据
+            console.error('获取预测数据时出错:', error);
+            showPredictionError(error.message); // 显示具体的错误信息
             return {
-                labels: [],
-                prices: []
+                prices: [],
+                model_loaded: '错误',
+                error: error.message
             };
         } finally {
-            // 重置加载状态
             isLoading = false;
-
-            // 移除加载指示器
             showLoadingState(false);
-
-            // 确保图表可见
-            const chartElement = document.getElementById('closingPriceChart');
-            if (chartElement) {
-                chartElement.style.display = 'block';
-                // console.log('确保图表可见');
-            }
-
-            // 强制刷新图表区域
-            setTimeout(() => {
-                if (closingPriceChart) {
-                    closingPriceChart.update();
-                    // console.log('强制更新图表');
-                }
-            }, 100);
+            // ... (其余 finally 代码不变) ...
         }
     }
 
@@ -750,74 +758,91 @@
     // 页面加载时自动调用预测API
     async function loadInitialPrediction() {
         const initialModel = document.getElementById('modelSelect').value;
-        const initialDays = document.getElementById('predictionRange').value;
+        const initialDays = 1; // 初始预测固定为1天 (明日)
 
-        // 立即更新预测天数显示，不等待API响应
+        // 更新模型准确率显示
+        updateModelDescription(initialModel);
+
         const predictionTitle = document.getElementById('prediction-title');
         if (predictionTitle) {
             predictionTitle.textContent = `预测收盘价 (明日)`;
         }
+        document.getElementById('prediction-loading').style.display = 'block';
+        document.getElementById('prediction-content').style.display = 'none';
 
         try {
-            // 调用预测API
-            const prediction = await fetchPrediction(initialModel, initialDays);
+            const predictionResult = await fetchPrediction(initialModel, initialDays);
 
-            if (prediction.labels.length > 0 && prediction.prices.length > 0) {
-                // 更新图表数据
-                closingPriceChart.data.labels = [...initialFilteredData.filteredLabels, ...prediction.labels];
+            if (predictionResult.error) {
+                // fetchPrediction 内部已经调用了 showPredictionError
+                // console.error('初始预测API返回错误:', predictionResult.error);
+                return; // 已经显示错误，直接返回
+            }
 
-                // 更新历史收盘价数据（在预测部分为null）
-                closingPriceChart.data.datasets[0].data = [...initialFilteredData.filteredPrices, ...Array(prediction.labels.length).fill(null)];
+            const predictedPrices = predictionResult.prices;
+            const futureLabels = predictionResult.labels || [];
 
-                // 更新预测价格数据（在历史部分为null）
-                closingPriceChart.data.datasets[1].data = [...Array(initialFilteredData.filteredLabels.length).fill(null), ...prediction.prices];
-
-                // 更新图表
+            if (predictedPrices && predictedPrices.length > 0) {
+                // 使用从fetchPrediction返回的预测日期标签
+                closingPriceChart.data.labels = [...initialFilteredData.filteredLabels, ...futureLabels];
+                closingPriceChart.data.datasets[0].data = [...initialFilteredData.filteredPrices, ...Array(futureLabels.length).fill(null)];
+                closingPriceChart.data.datasets[1].data = [...Array(initialFilteredData.filteredLabels.length).fill(null), ...predictedPrices];
                 closingPriceChart.update();
 
-                // 更新预测价格卡片
-                const predictedPrice = prediction.prices[prediction.prices.length - 1];
-
-                // 隐藏加载状态，显示预测内容
+                const predictedPrice = predictedPrices[predictedPrices.length - 1];
                 document.getElementById('prediction-loading').style.display = 'none';
                 document.getElementById('prediction-content').style.display = 'block';
-
-                // 更新预测价格
                 const predictedPriceElement = document.getElementById('predicted-price');
-                if (predictedPriceElement && predictedPrice) {
-                    predictedPriceElement.textContent = predictedPrice.toLocaleString();
 
-                    // 更新预期涨跌幅
+                if (predictedPriceElement && typeof predictedPrice === 'number') {
+                    predictedPriceElement.textContent = predictedPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    predictedPriceElement.style.color = '#212529'; // 重置颜色
+                    predictedPriceElement.style.fontSize = ''; // 重置字体大小
+
                     if (initialFilteredData.filteredPrices.length > 0) {
                         const currentPrice = initialFilteredData.filteredPrices[initialFilteredData.filteredPrices.length - 1];
-                        const expectedChangePercent = ((predictedPrice - currentPrice) / currentPrice * 100).toFixed(2);
+                        const expectedChangePercent = ((predictedPrice - currentPrice) / currentPrice * 100);
                         const predictedChangeElement = document.getElementById('predicted-change');
-
                         if (predictedChangeElement) {
+                            predictedChangeElement.className = 'text-muted'; // Default
+                            let icon = '<i class="bi bi-dash"></i>';
+                            let changeText = `0.00% (预期)`;
                             if (expectedChangePercent > 0) {
-                                predictedChangeElement.innerHTML = `<i class="bi bi-arrow-up"></i> +${expectedChangePercent}% (预期)`;
+                                icon = '<i class="bi bi-arrow-up"></i>';
                                 predictedChangeElement.className = 'text-success';
+                                changeText = `+${expectedChangePercent.toFixed(2)}% (预期)`;
                             } else if (expectedChangePercent < 0) {
-                                predictedChangeElement.innerHTML = `<i class="bi bi-arrow-down"></i> ${expectedChangePercent}% (预期)`;
+                                icon = '<i class="bi bi-arrow-down"></i>';
                                 predictedChangeElement.className = 'text-danger';
-                            } else {
-                                predictedChangeElement.innerHTML = `<i class="bi bi-dash"></i> 0.00% (预期)`;
-                                predictedChangeElement.className = 'text-muted';
+                                changeText = `${expectedChangePercent.toFixed(2)}% (预期)`;
                             }
+                            predictedChangeElement.innerHTML = `${icon} ${changeText}`;
                         }
                     }
+                } else if (predictedPriceElement) {
+                    showPredictionError('收到的预测价格无效。');
                 }
-
-                // 更新预测天数显示
-                const predictionTitle = document.getElementById('prediction-title');
-                if (predictionTitle) {
-                    predictionTitle.textContent = `预测收盘价 (明日)`;
-                }
+                 console.log(`模型 ${predictionResult.model_loaded} 预测了 ${predictedPrices.length} 天的价格。`);
+            } else {
+                showPredictionError('模型未返回有效的预测价格。');
             }
         } catch (error) {
-            // console.error('初始预测加载失败:', error);
-            showPredictionError('初始预测加载失败，请点击"预测"按钮重试。');
+            console.error('处理预测按钮点击时出错:', error);
+            showPredictionError('预测处理失败: ' + error.message);
+        } finally {
+            isLoading = false;
+            showLoadingState(false);
+            const chartElement = document.getElementById('closingPriceChart');
+            if (chartElement) {
+                chartElement.style.display = 'block';
+            }
+            setTimeout(() => {
+                if (closingPriceChart) {
+                    closingPriceChart.update();
+                }
+            }, 100);
         }
+        updateModelDescription(selectedModel);
     }
 
     // 调用初始预测加载函数
@@ -1277,22 +1302,16 @@
     });
 
     document.getElementById('applyFiltersBtn').addEventListener('click', async function() {
-        // 获取选择的时间范围
         const timeRange = document.getElementById('timeRangeSelect').value;
-
-        // 获取选择的预测模型
         const selectedModel = document.getElementById('modelSelect').value;
+        const predictionDays = 1; // 固定预测1天
 
-        // 预测天数固定为1天
-        const predictionDays = '1';
-
-        // 更新当前模型
         currentModel = selectedModel;
+        // 更新模型准确率显示
+        updateModelDescription(selectedModel);
 
-        // 根据选择的时间范围过滤数据
         const filteredData = filterDataByTimeRange(timeRange);
 
-        // 更新图表的历史数据部分
         closingPriceChart.data.labels = filteredData.filteredLabels;
         closingPriceChart.data.datasets[0].data = filteredData.filteredPrices;
         closingPriceChart.data.datasets[1].data = [];
@@ -1304,12 +1323,15 @@
         try {
             const prediction = await fetchPrediction(selectedModel, predictionDays);
 
-            if (prediction.labels.length > 0 && prediction.prices.length > 0) {
+            if (prediction.prices && prediction.prices.length > 0) {
+                // 获取预测标签，如果没有则生成
+                const predictionLabels = prediction.labels || [];
+
                 // 更新图表数据，添加预测部分
-                closingPriceChart.data.labels = [...filteredData.filteredLabels, ...prediction.labels];
+                closingPriceChart.data.labels = [...filteredData.filteredLabels, ...predictionLabels];
 
                 // 更新历史收盘价数据（在预测部分为null）
-                closingPriceChart.data.datasets[0].data = [...filteredData.filteredPrices, ...Array(prediction.labels.length).fill(null)];
+                closingPriceChart.data.datasets[0].data = [...filteredData.filteredPrices, ...Array(predictionLabels.length).fill(null)];
 
                 // 更新预测价格数据（在历史部分为null）
                 closingPriceChart.data.datasets[1].data = [...Array(filteredData.filteredLabels.length).fill(null), ...prediction.prices];
@@ -1488,6 +1510,75 @@
 
         // 显示错误提示
         // console.error('预测失败:', errorMessage);
+    }
+
+    // 更新模型描述和准确率
+    function updateModelDescription(modelType) {
+        console.log("更新模型描述，当前模型:", modelType, "模型指标:", modelMetrics);
+
+        // 获取DOM元素
+        const accuracyBar = document.getElementById('model-accuracy-bar');
+        const modelDescription = document.getElementById('model-description');
+
+        // 检查模型指标是否存在
+        if (!modelMetrics || !modelMetrics[modelType]) {
+            console.warn("模型指标数据不存在:", modelType);
+            if (accuracyBar) {
+                accuracyBar.style.width = "0%";
+                accuracyBar.textContent = "0%";
+                accuracyBar.setAttribute('aria-valuenow', 0);
+            }
+            if (modelDescription) {
+                modelDescription.textContent = "模型数据不可用";
+            }
+            return;
+        }
+
+        // 获取当前模型的准确率
+        const accuracy = modelMetrics[modelType].accuracy || 0;
+        const rmse = modelMetrics[modelType].rmse || 0;
+        const mae = modelMetrics[modelType].mae || 0;
+        const r2 = modelMetrics[modelType].r2 || 0;
+
+        // 更新准确率进度条
+        if (accuracyBar) {
+            accuracyBar.style.width = `${accuracy}%`;
+            accuracyBar.textContent = `${accuracy.toFixed(2)}%`;
+            accuracyBar.setAttribute('aria-valuenow', accuracy);
+
+            // 根据准确率设置颜色
+            if (accuracy >= 95) {
+                accuracyBar.className = 'progress-bar bg-success';
+            } else if (accuracy >= 90) {
+                accuracyBar.className = 'progress-bar bg-info';
+            } else if (accuracy >= 80) {
+                accuracyBar.className = 'progress-bar bg-warning';
+            } else {
+                accuracyBar.className = 'progress-bar bg-danger';
+            }
+        }
+
+        // 更新模型描述
+        if (modelDescription) {
+            let modelName = '';
+            switch (modelType) {
+                case 'mlp':
+                    modelName = 'MLP';
+                    break;
+                case 'lstm':
+                    modelName = 'LSTM';
+                    break;
+                case 'cnn':
+                    modelName = 'CNN';
+                    break;
+                default:
+                    modelName = modelType.toUpperCase();
+            }
+
+            modelDescription.textContent = `基于${modelName}模型 (RMSE: ${rmse.toFixed(2)}, MAE: ${mae.toFixed(2)})`;
+        }
+
+        console.log(`已更新模型描述: ${modelType}, 准确率: ${accuracy}%`);
     }
 
     // 初始化时更新模型说明

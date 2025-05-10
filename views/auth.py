@@ -17,12 +17,10 @@ bp = Blueprint('auth', __name__)
 USERS_FILE = '../data/forum/users.json'
 
 def get_users_file_path():
-    """获取用户数据文件的完整路径"""
     current_dir = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(current_dir, USERS_FILE)
 
 def load_users():
-    """加载用户数据"""
     try:
         full_path = get_users_file_path()
 
@@ -37,7 +35,6 @@ def load_users():
         return []
 
 def save_users(users):
-    """保存用户数据"""
     try:
         full_path = get_users_file_path()
 
@@ -54,7 +51,6 @@ def save_users(users):
         return False
 
 def login_required(view):
-    """登录验证装饰器"""
     @wraps(view)
     def wrapped_view(*args, **kwargs):
         if 'user_id' not in session:
@@ -63,7 +59,6 @@ def login_required(view):
     return wrapped_view
 
 def admin_required(view):
-    """管理员权限验证装饰器"""
     @wraps(view)
     def wrapped_view(*args, **kwargs):
         if 'user_id' not in session:
@@ -78,12 +73,11 @@ def admin_required(view):
 
 @bp.route('/register', methods=['GET', 'POST'])
 def register():
-    """注册页面"""
     if request.method == 'POST':
         username = request.form.get('username')
-        password = request.form.get('password')  # 实际应用中应该使用加密密码
+        password = request.form.get('password')  
         confirm_password = request.form.get('confirm_password')
-        role = request.form.get('role', 'user')  # 默认为普通用户
+        role = request.form.get('role', 'user')  
 
         # 验证输入
         if not username or not password:
@@ -124,11 +118,10 @@ def register():
 
 @bp.route('/login', methods=['GET', 'POST'])
 def login():
-    """登录页面"""
     if request.method == 'POST':
         username = request.form.get('username')
-        password = request.form.get('password')  # 实际应用中应该使用加密密码
-        role = request.form.get('role')  # 获取选择的角色
+        password = request.form.get('password')  
+        role = request.form.get('role')  
 
         # 加载用户数据
         users = load_users()
@@ -163,14 +156,12 @@ def login():
 
 @bp.route('/logout')
 def logout():
-    """登出"""
     session.clear()
     flash('您已成功登出', 'success')
     return redirect(url_for('main.index'))
 
 @bp.route('/api/check-auth')
 def check_auth():
-    """API端点：检查用户是否已登录"""
     if 'user_id' in session:
         return jsonify({
             'authenticated': True,

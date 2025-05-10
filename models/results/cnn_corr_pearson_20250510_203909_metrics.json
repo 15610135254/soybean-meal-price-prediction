@@ -1,0 +1,30 @@
+{
+    "model_key": "CNN_Corr_pearson",
+    "timestamp": "20250510_203909",
+    "data_file": "/root/train1/my_dl_project/model_data/date1.csv",
+    "target_column": "close",
+    "look_back": 30,
+    "test_samples": 241,
+    "metrics": {
+        "mse": 5506.098991897591,
+        "rmse": 74.20309287285531,
+        "mae": 57.459270049922196,
+        "r2": 0.9199695058969555,
+        "mape": 1.8756042396027308,
+        "accuracy": 95.850622406639
+    },
+    "prediction_stats": {
+        "min": 2612.781982421875,
+        "max": 3665.7373046875,
+        "mean": 3038.134765625,
+        "std": 236.39993286132812,
+        "median": 3013.31884765625
+    },
+    "actual_stats": {
+        "min": 2567.0,
+        "max": 3622.0,
+        "mean": 3043.7344398340247,
+        "std": 262.29756473392985,
+        "median": 2995.0
+    }
+}

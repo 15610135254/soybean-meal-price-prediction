@@ -11,11 +11,8 @@ logger = logging.getLogger(__name__)
 
 bp = Blueprint('main', __name__)
 
-# 使用 data_utils 模块管理数据文件路径
-
 @bp.route('/')
 def index():
-    """首页路由，检查用户是否已登录，未登录则重定向到登录页面"""
     # 重置数据文件路径为默认值
     reset_data_file_path()
 
@@ -35,7 +32,6 @@ def index():
 
 @bp.route('/api/latest-market-data')
 def get_latest_market_data():
-    """API端点：获取最新的市场数据"""
     try:
         # 获取数据文件路径
         full_data_path = get_full_data_path()

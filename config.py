@@ -11,3 +11,30 @@ class Config:
 
     NEWS_API_KEY = os.environ.get('NEWS_API_KEY')
     MARKET_API_KEY = os.environ.get('MARKET_API_KEY')
+
+LSTM_CONFIG = {
+    'lstm_units1': 192,  
+    'lstm_units2': 128,  
+    'dense_units1': 128, 
+    'dense_units2': 64,  
+    'dropout': 0.3,    
+    'learning_rate': 0.0005, 
+    'l2_reg': 0.0001,
+    'use_correlation': False, 
+    'selected_feature_indices': None 
+}
+
+CNN_CONFIG = {
+    'filters1': 192,    
+    'filters2': 128,    
+    'filters3': 64,     
+    'kernel_size': 3,
+    'pool_size': 2,
+    'dense_units1': 128, 
+    'dense_units2': 64,  
+    'dropout': 0.25,   
+    'learning_rate': 0.0005, 
+    'l2_reg': 0.0001,
+    'use_correlation': False, 
+    'selected_feature_indices': None 
+}

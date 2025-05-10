@@ -1,5 +1,4 @@
-import requests
-from bs4 import BeautifulSoup
+# 标准库导入
 import json
 import time
 import sys
@@ -8,6 +7,8 @@ import os
 import random
 from datetime import datetime
 from urllib.parse import urljoin
+import requests
+from bs4 import BeautifulSoup
 
 def extract_publish_time(container, url):
     if container:
@@ -42,10 +43,9 @@ def extract_publish_time(container, url):
         if match:
             return match.group(0)
 
-    return ""
+    return ''
 
 def get_news_content(url, title, max_retries=2):
-    """获取新闻内容"""
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36'
     }
@@ -268,7 +268,6 @@ def get_news_info(url, max_retries=3, retry_delay=2):
                 return []
 
 def save_to_file(data, filename):
-    """保存数据到文件"""
     try:
         directory = os.path.dirname(filename)
         if directory and not os.path.exists(directory):
@@ -282,23 +281,10 @@ def save_to_file(data, filename):
         print(f"保存文件时出错: {str(e)}")
         return False
 
-def print_usage():
-    """显示使用说明"""
-    print("使用方法:")
-    print("python3 spider.py [URL] [输出文件名]")
-    print("示例:")
-    print("python3 spider.py https://news.sina.com.cn/ data/news.json")
-    print("如果不提供参数，将使用默认URL(百度豆粕新闻搜索)和默认输出文件名(data/news.json)")
-
 def main():
     url = None
     output_file = 'data/news.json'
-
     if len(sys.argv) > 1:
-        if sys.argv[1] in ['-h', '--help', 'help']:
-            print_usage()
-            return
-
         url = sys.argv[1]
 
         if len(sys.argv) > 2:

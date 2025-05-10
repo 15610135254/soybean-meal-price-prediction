@@ -1,0 +1,30 @@
+{
+    "model_key": "MLP_Corr_pearson",
+    "timestamp": "20250510_203310",
+    "data_file": "/root/train1/my_dl_project/model_data/date1.csv",
+    "target_column": "close",
+    "look_back": 30,
+    "test_samples": 241,
+    "metrics": {
+        "mse": 2848.2782716053644,
+        "rmse": 53.36926336015295,
+        "mae": 42.383943043309124,
+        "r2": 0.9586006140182046,
+        "mape": 1.3836664858007421,
+        "accuracy": 99.5850622406639
+    },
+    "prediction_stats": {
+        "min": 2607.1884765625,
+        "max": 3682.232177734375,
+        "mean": 3048.6416015625,
+        "std": 274.3081359863281,
+        "median": 3004.31640625
+    },
+    "actual_stats": {
+        "min": 2567.0,
+        "max": 3622.0,
+        "mean": 3043.7344398340247,
+        "std": 262.29756473392985,
+        "median": 2995.0
+    }
+}

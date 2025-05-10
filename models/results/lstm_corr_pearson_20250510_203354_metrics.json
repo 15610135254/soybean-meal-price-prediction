@@ -1,0 +1,30 @@
+{
+    "model_key": "LSTM_Corr_pearson",
+    "timestamp": "20250510_203354",
+    "data_file": "/root/train1/my_dl_project/model_data/date1.csv",
+    "target_column": "close",
+    "look_back": 30,
+    "test_samples": 241,
+    "metrics": {
+        "mse": 12829.724455888341,
+        "rmse": 113.2683735907263,
+        "mae": 80.53266419216806,
+        "r2": 0.8135214806487164,
+        "mape": 2.540363505095521,
+        "accuracy": 90.87136929460581
+    },
+    "prediction_stats": {
+        "min": 2656.675537109375,
+        "max": 4015.9580078125,
+        "mean": 3068.59228515625,
+        "std": 294.8853454589844,
+        "median": 3002.25244140625
+    },
+    "actual_stats": {
+        "min": 2567.0,
+        "max": 3622.0,
+        "mean": 3043.7344398340247,
+        "std": 262.29756473392985,
+        "median": 2995.0
+    }
+}
