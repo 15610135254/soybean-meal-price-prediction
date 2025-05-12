@@ -2,17 +2,13 @@ import pandas as pd
 import numpy as np
 
 def preprocess_data(input_file, output_file=None):
-    print(f"正在读取数据文件: {input_file}")
     # 读取CSV文件
     df = pd.read_csv(input_file)
 
-
-    missing_values = df.isnull().sum()
     try:
         df['日期'] = pd.to_datetime(df['日期'])
-        print("\n已将'日期'列转换为日期时间类型")
     except Exception as e:
-        print(f"转换日期列时出错: {str(e)}")
+        pass
 
     # 转换数值列并处理异常值
     numeric_cols = ['收盘价', '开盘价', '最高价', '最低价', '成交量']
@@ -31,7 +27,6 @@ def preprocess_data(input_file, output_file=None):
             def handle_nan_values(x):
                 return np.nan_to_num(x, nan=0.0, posinf=0.0, neginf=0.0)
             outliers = df[col].apply(check_outlier, args=(mean, std))
-            outlier_count = outliers.sum()
             df[col] = df[col].apply(handle_nan_values)
 
     df = df.fillna(method='ffill')
@@ -41,7 +36,6 @@ def preprocess_data(input_file, output_file=None):
         if col in df.columns and df[col].isna().any():
             col_mean = df[col].mean()
             df[col] = df[col].fillna(col_mean)
-            print(f"'{col}'列中的NaN值已用平均值 {col_mean:.2f} 填充")
 
     # 计算涨跌幅
     df['涨跌幅'] = df['收盘价'].pct_change() * 100
@@ -125,20 +119,15 @@ def preprocess_data(input_file, output_file=None):
     for col in df.columns:
         if df[col].isna().any():
             if pd.api.types.is_numeric_dtype(df[col]):
-                # 数值列用0填充
                 df[col] = df[col].fillna(0)
-                print(f"'{col}'列中的NaN值已用0填充")
             else:
-                # 非数值列用空字符串填充
                 df[col] = df[col].fillna('')
-                print(f"'{col}'列中的NaN值已用空字符串填充")
 
     for col in df.select_dtypes(include=[np.number]).columns:
         df[col] = df[col].apply(lambda x: np.nan_to_num(x, nan=0.0, posinf=0.0, neginf=0.0))
 
     df.to_csv(output_file, index=False, encoding='utf-8-sig')
-    print(f"\n预处理后的数据已保存到: {output_file}")
-
+    
     return df
 
 if __name__ == "__main__":

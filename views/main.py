@@ -13,9 +13,6 @@ bp = Blueprint('main', __name__)
 
 @bp.route('/')
 def index():
-    # 重置数据文件路径为默认值
-    reset_data_file_path()
-
     if 'user_id' not in session:
         return redirect(url_for('auth.login'))
 
@@ -36,34 +33,22 @@ def get_latest_market_data():
         # 获取数据文件路径
         full_data_path = get_full_data_path()
 
-        # 检查文件是否存在
         if not os.path.exists(full_data_path):
             logger.error(f"数据文件不存在: {full_data_path}")
             return jsonify({"error": "数据文件不存在"}), 404
 
         # 读取CSV文件
         df = pd.read_csv(full_data_path)
-
-        # 确保日期列是datetime类型
         df['date'] = pd.to_datetime(df['date'])
-
-        # 按日期排序（确保最后一行是最新数据）
         df = df.sort_values('date', ascending=True)
-
-        # 获取最后一行数据（最新数据）
         latest_data = df.iloc[-1]
-
-        # 计算涨跌幅
         if len(df) > 1:
             previous_close = df.iloc[-2]['close']
             change_percent = ((latest_data['close'] - previous_close) / previous_close * 100)
         else:
             change_percent = 0
 
-        # 格式化日期
         date_str = latest_data['date'].strftime('%Y-%m-%d')
-
-        # 构建响应数据
         response_data = {
             "date": date_str,
             "open": float(latest_data['open']),

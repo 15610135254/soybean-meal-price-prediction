@@ -5,8 +5,6 @@ def preprocess_new_data(input_file, output_file=None):
     # 读取CSV文件
     df = pd.read_csv(input_file)
     
-    missing_values = df.isnull().sum()
-    
     df['date'] = pd.to_datetime(df['date'])
     
     numeric_cols = ['close', 'open', 'high', 'low', 'volume']
@@ -23,10 +21,6 @@ def preprocess_new_data(input_file, output_file=None):
             def handle_nan_values(x):
                 return np.nan_to_num(x, nan=0.0, posinf=0.0, neginf=0.0)
             outliers = df[col].apply(check_outlier, args=(mean, std))
-            outlier_count = outliers.sum()
-            
-            if outlier_count > 0:
-                print(f"\n'{col}'列检测到 {outlier_count} 个异常值")
             df[col] = df[col].apply(handle_nan_values)
     
     df = df.fillna(method='ffill')
@@ -65,18 +59,14 @@ def preprocess_new_data(input_file, output_file=None):
         if df[col].isna().any():
             if pd.api.types.is_numeric_dtype(df[col]):
                 df[col] = df[col].fillna(0)
-                print(f"'{col}'列中的NaN值已用0填充")
             else:
-                # 非数值列用空字符串填充
                 df[col] = df[col].fillna('')
-                print(f"'{col}'列中的NaN值已用空字符串填充")
     
     # 使用numpy的nan_to_num函数处理inf和NaN
     for col in df.select_dtypes(include=[np.number]).columns:
         df[col] = df[col].apply(lambda x: np.nan_to_num(x, nan=0.0, posinf=0.0, neginf=0.0))
     
     df.to_csv(output_file, index=False, encoding='utf-8-sig')
-    print(f"\n预处理后的数据已保存到: {output_file}")
     
     return df
 

@@ -115,8 +115,6 @@ def get_news_content(url, title, max_retries=2):
         except Exception as e:
             if attempt < max_retries - 1:
                 time.sleep(1)
-            else:
-                print(f"获取新闻内容失败: {str(e)}")
 
     return f"{title}。这是一条关于豆粕期货市场的重要新闻。"
 
@@ -199,114 +197,65 @@ def get_news_info(url, max_retries=3, retry_delay=2):
                                     'publish_time': publish_time
                                 }
                                 raw_news_list.append(raw_news)
-                else:
-                    all_links = soup.find_all('a')
-                    for link in all_links:
-                        href = link.get('href')
-                        if href and not href.startswith('javascript:') and not href.startswith('#'):
-                            full_url = urljoin(url, href)
-                            title = link.get_text(strip=True)
 
-                            news_keywords = ['news', 'article', 'detail', 'content', 'story', 'report']
-                            exclude_keywords = ['login', 'register', 'about', 'contact', 'help', 'download', 'app']
+            if raw_news_list:
+                return raw_news_list
 
-                            is_news_link = any(keyword in full_url.lower() for keyword in news_keywords)
-                            is_excluded = any(keyword in full_url.lower() for keyword in exclude_keywords)
-
-                            has_valid_title = title and len(title) > 5
-
-                            if is_news_link and not is_excluded and has_valid_title:
-                                publish_time = extract_publish_time(link.parent, full_url)
-
-                                if not publish_time:
-                                    publish_time = datetime.now().strftime('%Y-%m-%d')
-
-                                raw_news = {
-                                    'url': full_url,
-                                    'title': title,
-                                    'publish_time': publish_time
-                                }
-                                raw_news_list.append(raw_news)
-
-            news_info_list = []
-            for i, news in enumerate(raw_news_list):
-                content = get_news_content(news['url'], news['title'])
-
-                if is_gibberish(content):
-                    content = f"{news['title']}。这是一条关于豆粕期货市场的重要新闻。"
-                category = "market"
-                category_name = "市场动态"
-                is_featured = (i == 0)
-                views = random.randint(1000, 3500)
-                source = "网络"
-                news_info = {
-                    'id': i + 1,
-                    'title': news['title'],
-                    'content': content,
-                    'category': category,
-                    'category_name': category_name,
-                    'date': news['publish_time'],
-                    'source': source,
-                    'views': views,
-                    'is_featured': is_featured,
-                    'url': news['url']
-                }
-                news_info_list.append(news_info)
-
-            return news_info_list
-
-        except requests.exceptions.RequestException:
-            if attempt < max_retries - 1:
-                time.sleep(retry_delay)
-            else:
-                return []
         except Exception as e:
-            print(f"获取新闻时出错: {str(e)}")
             if attempt < max_retries - 1:
                 time.sleep(retry_delay)
-            else:
-                return []
+
+    return []
+
+def process_news_content(news_list, max_content_retries=2):
+    processed_news = []
+    
+    for news in news_list:
+        try:
+            content = get_news_content(news['url'], news['title'], max_content_retries)
+            if content:
+                news['content'] = content
+                news['id'] = len(processed_news) + 1
+                news['date'] = news.get('publish_time', datetime.now().strftime('%Y-%m-%d'))
+                news['source'] = '自动采集'
+                news['category'] = 'market'
+                news['is_featured'] = False
+                news['views'] = random.randint(50, 500)
+                
+                processed_news.append(news)
+        except Exception as e:
+            continue
+            
+    return processed_news
 
 def save_to_file(data, filename):
-    try:
-        directory = os.path.dirname(filename)
-        if directory and not os.path.exists(directory):
-            os.makedirs(directory, exist_ok=True)
-
-        with open(filename, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=4)
-        print(f"数据已保存到: {filename}")
-        return True
-    except Exception as e:
-        print(f"保存文件时出错: {str(e)}")
-        return False
+    with open(filename, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=4)
 
 def main():
-    url = None
-    output_file = 'data/news.json'
-    if len(sys.argv) > 1:
-        url = sys.argv[1]
-
-        if len(sys.argv) > 2:
-            output_file = sys.argv[2]
-            if not output_file.endswith('.json'):
-                output_file += '.json'
+    news_sources = [
+        "https://futures.financialchina.shop/soybean-meal/",
+        "https://finance.sina.com.cn/futures/"
+    ]
+    
+    all_news = []
+    
+    for source in news_sources:
+        news_list = get_news_info(source)
+        if news_list:
+            all_news.extend(news_list)
+    
+    if all_news:
+        processed_news = process_news_content(all_news)
+        
+        if processed_news:
+            all_news = sorted(processed_news, key=lambda x: x.get('publish_time', ''), reverse=True)
+            save_to_file(all_news, 'news_info.json')
+            print(f"采集完成，共获取 {len(all_news)} 条新闻")
+        else:
+            print("未能成功获取有效内容")
     else:
-        url = 'https://www.baidu.com/s?tn=news&rtt=1&bsst=1&wd=%E8%B1%86%E7%B2%95%E6%96%B0%E9%97%BB&cl=1'
-
-    print(f"正在从 {url} 爬取新闻...")
-    news_info_list = get_news_info(url)
-
-    if news_info_list:
-        print(f"成功获取 {len(news_info_list)} 条新闻")
-
-        if save_to_file(news_info_list, output_file):
-            print(f"新闻数据已保存到 {output_file}")
-
-            if output_file != 'news_info.json':
-                save_to_file(news_info_list, 'news_info.json')
-    else:
-        print("未找到任何新闻链接")
+        print("未能从新闻源获取数据")
 
 if __name__ == "__main__":
     main()

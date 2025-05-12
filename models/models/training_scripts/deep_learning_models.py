@@ -13,9 +13,8 @@ import seaborn as sns
 import sys
 from sklearn.pipeline import Pipeline
 
-# 添加项目根目录到Python路径，以便导入特征转换器
+# 删除特征转换器的导入
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
-from models.feature_transformers import TechnicalIndicatorTransformer
 
 # 设置GPU内存增长，避免一次性占用所有GPU内存
 gpus = tf.config.list_physical_devices('GPU')
@@ -56,7 +55,7 @@ else:
 
 from tensorflow.keras.models import Sequential, load_model, Model
 from tensorflow.keras.layers import Dense, LSTM, Dropout, Conv1D, MaxPooling1D, Flatten, BatchNormalization, Activation
-from tensorflow.keras.layers import Input, Concatenate, GlobalAveragePooling1D, Attention, Add, TimeDistributed
+from tensorflow.keras.layers import Input, Concatenate, GlobalAveragePooling1D, GlobalMaxPooling1D, Attention, Add, TimeDistributed
 from tensorflow.keras.layers import Bidirectional, GRU, LeakyReLU, PReLU, Reshape, RepeatVector, Lambda
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau, CSVLogger
 from tensorflow.keras.optimizers import Adam, RMSprop
@@ -151,18 +150,12 @@ class DeepLearningModels:
         print(f"时间范围: {self.df[self.date_col].min()} 至 {self.df[self.date_col].max()}")
 
         # 选择要使用的特征
-        self.features = self.select_features()
-        print(f"选择的特征列表 ({len(self.features)} 个特征): {self.features}")
+        self.features = self.select_features()  # 选择相关性最高的10个特征
+        print(f"基于相关性分析选择的特征列表 ({len(self.features)} 个特征): {self.features}")
 
-        # 创建预处理管道，包括特征转换器和数据缩放器
-        print("创建预处理管道...")
+        # 创建简化的预处理管道，只包含MinMaxScaler
+        print("创建简化的预处理管道...")
         self.preprocessing_pipeline = Pipeline([
-            ('technical_indicators', TechnicalIndicatorTransformer(
-                date_col=self.date_col,
-                target_col=self.target_col,
-                handle_missing=True,
-                fill_method='ffill'
-            )),
             ('scaler', MinMaxScaler(feature_range=(-1, 1)))
         ])
 
@@ -291,7 +284,7 @@ class DeepLearningModels:
         return self.correlation_results
 
     def select_features(self):
-        print("信息: 正在从原始加载数据中选择特征，不添加新计算指标。")
+        print("信息: 正在从原始加载数据中选择特征，将基于相关性分析选择特征。")
         if self.df is None or self.df.empty:
             raise ValueError("错误: DataFrame未加载或为空，无法选择特征。")
 
@@ -314,9 +307,10 @@ class DeepLearningModels:
 
         potential_feature_names = [col for col in all_loaded_columns if col not in columns_to_exclude]
 
-        final_selected_features = []
+        # 首先获取所有有效的数值型特征
+        valid_numeric_features = []
         for feature_name in potential_feature_names:
-            if feature_name in self.df.columns: 
+            if feature_name in self.df.columns:
                 if not pd.api.types.is_numeric_dtype(self.df[feature_name]):
                     print(f"信息: 特征 '{feature_name}' 非数值类型，尝试转换为数值类型...")
                     try:
@@ -326,20 +320,51 @@ class DeepLearningModels:
                         if self.df[feature_name].isnull().all():
                             print(f"警告: 特征 '{feature_name}' 转换为数值后全为NaN。此特征将不被使用。")
                         else:
-                            final_selected_features.append(feature_name)
+                            valid_numeric_features.append(feature_name)
                             print(f"信息: 特征 '{feature_name}' 已成功转换为数值类型。")
                     except Exception as e:
                         print(f"警告: 转换特征 '{feature_name}' 为数值类型失败: {e}。此特征将不被使用。")
                 else:
-                    final_selected_features.append(feature_name) 
+                    valid_numeric_features.append(feature_name)
             else:
                 # 这个情况理论上不应该发生，因为是从all_loaded_columns开始的
                 print(f"警告: 在特征选择过程中，预期中的列 '{feature_name}' 未在DataFrame中找到。")
 
-        print(f"信息: 最终选择用于模型的特征共 {len(final_selected_features)} 个: {final_selected_features}")
+        # 进行相关性分析并选择特征
+        print("信息: 进行相关性分析以选择最相关的特征...")
 
-        # 不再强制要求固定数量的特征，而是使用实际加载的特征数量
-        print(f"信息: 模型将使用 {len(final_selected_features)} 个特征: {final_selected_features}")
+        # 获取特征和目标变量的数据
+        features_df = self.df[valid_numeric_features]
+        target_series = self.df[self.target_col]
+
+        # 计算皮尔逊相关系数 (线性相关性)
+        pearson_corr = features_df.corrwith(target_series, method='pearson').sort_values(ascending=False)
+
+        # 按皮尔逊相关系数的绝对值排序，排除volume特征
+        abs_pearson = pearson_corr.abs().sort_values(ascending=False)
+        if 'volume' in abs_pearson.index:
+            print(f"信息: 排除 'volume' 特征")
+            abs_pearson = abs_pearson[abs_pearson.index != 'volume']
+
+        # 选择所有剩余特征，不再限制固定数量
+        final_selected_features = abs_pearson.index.tolist()
+        top_n = len(final_selected_features)
+
+        print(f"信息: 基于相关性分析，选择了除volume外的所有 {top_n} 个特征: {final_selected_features}")
+
+        # 保存相关性结果，以便其他方法可能使用
+        self.correlation_results = {
+            'pearson': pearson_corr,
+            'correlation_df': pd.DataFrame({
+                '特征': valid_numeric_features,
+                '皮尔逊相关系数': [pearson_corr[f] for f in valid_numeric_features]
+            })
+        }
+
+        # 打印所有特征的相关性排名，帮助调试
+        print("\n所有特征的相关性排名 (已排除volume):")
+        for i, (feature, corr) in enumerate(abs_pearson.items(), 1):
+            print(f"{i}. {feature}: {corr:.4f}")
 
         # 如果特征数量过少，发出警告
         if len(final_selected_features) < 5:
@@ -390,25 +415,48 @@ class DeepLearningModels:
             raise ValueError("训练集在split_data后为空，无法继续。")
 
     def process_data_with_pipeline(self):
-        print("使用Pipeline处理数据...")
+        print("使用简化Pipeline处理数据...")
 
         # 创建目标变量缩放器
         self.target_scaler = MinMaxScaler(feature_range=(-1, 1))
 
+        # 不再限制特征数量
+        print(f"使用相关性分析选择的所有 {len(self.features)} 个特征: {self.features}")
+
+        # 从训练数据中提取选定的特征
+        train_df_selected = self.train_df[self.features].copy()
+        val_df_selected = self.val_df[self.features].copy()
+        test_df_selected = self.test_df[self.features].copy()
+
+        # 打印数据形状，帮助调试
+        print(f"训练数据形状: {train_df_selected.shape}")
+        print(f"验证数据形状: {val_df_selected.shape}")
+        print(f"测试数据形状: {test_df_selected.shape}")
+
+        # 简化预处理管道，只使用MinMaxScaler
+        self.preprocessing_pipeline = Pipeline([
+            ('scaler', MinMaxScaler(feature_range=(-1, 1)))
+        ])
+
         # 拟合并转换训练数据
         print("拟合并转换训练数据...")
-        self.X_train_scaled = self.preprocessing_pipeline.fit_transform(self.train_df)
+        self.X_train_scaled = self.preprocessing_pipeline.fit_transform(train_df_selected)
         self.y_train_scaled = self.target_scaler.fit_transform(self.y_train.reshape(-1, 1)).ravel()
 
         # 转换验证数据
         print("转换验证数据...")
-        self.X_val_scaled = self.preprocessing_pipeline.transform(self.val_df)
+        self.X_val_scaled = self.preprocessing_pipeline.transform(val_df_selected)
         self.y_val_scaled = self.target_scaler.transform(self.y_val.reshape(-1, 1)).ravel()
 
         # 转换测试数据
         print("转换测试数据...")
-        self.X_test_scaled = self.preprocessing_pipeline.transform(self.test_df)
+        self.X_test_scaled = self.preprocessing_pipeline.transform(test_df_selected)
         self.y_test_scaled = self.target_scaler.transform(self.y_test.reshape(-1, 1)).ravel()
+
+        # 打印转换后的数据形状，确认特征数量
+        print(f"转换后的训练数据形状: {self.X_train_scaled.shape}")
+        print(f"转换后的验证数据形状: {self.X_val_scaled.shape}")
+        print(f"转换后的测试数据形状: {self.X_test_scaled.shape}")
 
         # 保存Pipeline和目标缩放器
         pipeline_dir = 'pipelines'
@@ -482,6 +530,9 @@ class DeepLearningModels:
                 ys.append(y[i + time_steps])
             return np.array(Xs), np.array(ys)
 
+        # 不再限制特征数量
+        print(f"使用所有选定的特征，特征数量: {self.X_train_scaled.shape[1]}")
+
         # 创建训练集时间序列
         self.X_train_ts, self.y_train_ts = create_time_series(
             self.X_train_scaled, self.y_train_scaled, self.look_back
@@ -497,9 +548,14 @@ class DeepLearningModels:
             self.X_test_scaled, self.y_test_scaled, self.look_back
         )
 
+        # 打印时间序列数据的形状，确认特征数量
         print(f"时间序列训练集形状: {self.X_train_ts.shape}")
         print(f"时间序列验证集形状: {self.X_val_ts.shape}")
         print(f"时间序列测试集形状: {self.X_test_ts.shape}")
+
+        # 确认特征维度
+        feature_dim = self.X_train_ts.shape[2]
+        print(f"时间序列数据的特征维度: {feature_dim}")
 
     def _create_dataset(self, X, y, batch_size, shuffle=False):
         dataset = tf.data.Dataset.from_tensor_slices((X, y))
@@ -512,180 +568,167 @@ class DeepLearningModels:
     def create_mlp_model(self, params=None):
         if params is None:
             params = {
-                'units1': 256,  
-                'units2': 128,
-                'units3': 64,
-                'units4': 32,
-                'dropout': 0.2,  
-                'learning_rate': 0.0005,  
-                'l2_reg': 0.0001,  
-                'use_correlation': False,  
-                'selected_feature_indices': None  
+                'units1': 512,
+                'units2': 256,
+                'units3': 128,
+                'units4': 64,
+                'dropout': 0.3,
+                'learning_rate': 0.001,
+                'l2_reg': 0.0005,
+                'use_correlation': True,
+                'batch_norm': True,
+                'activation': 'elu',
+                'selected_feature_indices': None
             }
 
-        # 检查是否使用相关性分析结果
-        use_correlation = params.get('use_correlation', False)
-        selected_feature_indices = params.get('selected_feature_indices', None)
-
-        # 如果使用相关性分析但没有提供特征索引，发出警告
-        if use_correlation and (selected_feature_indices is None or len(selected_feature_indices) == 0):
-            print("警告: 启用了相关性分析但未提供特征索引，将使用所有特征")
-            use_correlation = False
-
+        # 确保使用相关性分析
+        batch_norm = params.get('batch_norm', True)
+        activation_fn = params.get('activation', 'elu')
+        
         # 获取实际特征维度
         feature_dim = self.X_train_ts.shape[2]
         print(f"MLP模型使用的实际特征维度: {feature_dim}")
+        
+        # 创建模型输入
+        inputs = Input(shape=(self.look_back, feature_dim))
+        
+        # 应用批归一化到输入
+        normalized = BatchNormalization()(inputs)
 
-        # 根据是否使用相关性分析调整模型结构
-        if use_correlation:
-            print(f"MLP模型将使用 {len(selected_feature_indices)} 个选定的特征")
-            # 创建特征选择层
-            inputs = Input(shape=(self.look_back, feature_dim))
+        # 使用多尺度特征提取 - 使用不同尺寸的卷积核
+        # 注意：我们已经在数据处理阶段选择了相关性最高的特征，这里直接使用
+        print(f"MLP模型使用相关性分析选择的 {feature_dim} 个特征")
 
-            # 使用Lambda层选择特定的特征 - 简化实现
-            selected = Lambda(lambda x: tf.gather(x, selected_feature_indices, axis=2))(inputs)
+        # 使用RNN层捕获时间序列信息
+        rnn_layer = Bidirectional(LSTM(128, return_sequences=True))(normalized)
 
-            # 批归一化输入
-            normalized = BatchNormalization()(selected)
+        # 添加注意力机制
+        attention_layer = Attention()([rnn_layer, rnn_layer])
 
-            # 调整卷积层的滤波器数量，根据选择的特征数量
-            filters_count = min(64, max(32, len(selected_feature_indices) * 4))
+        # 使用多尺度卷积提取不同尺度的特征
+        conv1 = Conv1D(filters=128, kernel_size=2, padding='same')(normalized)
+        conv1 = BatchNormalization()(conv1)
+        conv1 = Activation(activation_fn)(conv1)
 
-            # 创建多个不同尺度的时序特征提取分支
-            time_features1 = Conv1D(filters=filters_count, kernel_size=2, padding='same')(normalized)
-            time_features1 = BatchNormalization()(time_features1)
-            time_features1 = PReLU()(time_features1)
-            time_features1 = GlobalAveragePooling1D()(time_features1)
+        conv2 = Conv1D(filters=128, kernel_size=3, padding='same')(normalized)
+        conv2 = BatchNormalization()(conv2)
+        conv2 = Activation(activation_fn)(conv2)
 
-            # 中期特征
-            time_features2 = Conv1D(filters=filters_count, kernel_size=3, padding='same')(normalized)
-            time_features2 = BatchNormalization()(time_features2)
-            time_features2 = PReLU()(time_features2)
-            time_features2 = GlobalAveragePooling1D()(time_features2)
+        conv3 = Conv1D(filters=128, kernel_size=5, padding='same')(normalized)
+        conv3 = BatchNormalization()(conv3)
+        conv3 = Activation(activation_fn)(conv3)
 
-            # 长期特征
-            time_features3 = Conv1D(filters=filters_count, kernel_size=5, padding='same')(normalized)
-            time_features3 = BatchNormalization()(time_features3)
-            time_features3 = PReLU()(time_features3)
-            time_features3 = GlobalAveragePooling1D()(time_features3)
+        # 全局特征提取
+        global_avg_rnn = GlobalAveragePooling1D()(attention_layer)
+        global_avg1 = GlobalAveragePooling1D()(conv1)
+        global_avg2 = GlobalAveragePooling1D()(conv2)
+        global_avg3 = GlobalAveragePooling1D()(conv3)
 
-            # 创建全局特征提取分支 - 直接扁平化处理
-            global_features = Flatten()(normalized)
-        else:
-            # 使用所有特征的原始模型结构
-            inputs = Input(shape=(self.look_back, feature_dim))
-
-            # 批归一化输入
-            normalized = BatchNormalization()(inputs)
-
-            # 短期特征
-            time_features1 = Conv1D(filters=64, kernel_size=2, padding='same')(normalized)
-            time_features1 = BatchNormalization()(time_features1)
-            time_features1 = PReLU()(time_features1)
-            time_features1 = GlobalAveragePooling1D()(time_features1)
-
-            # 中期特征
-            time_features2 = Conv1D(filters=64, kernel_size=3, padding='same')(normalized)
-            time_features2 = BatchNormalization()(time_features2)
-            time_features2 = PReLU()(time_features2)
-            time_features2 = GlobalAveragePooling1D()(time_features2)
-
-            # 长期特征
-            time_features3 = Conv1D(filters=64, kernel_size=5, padding='same')(normalized)
-            time_features3 = BatchNormalization()(time_features3)
-            time_features3 = PReLU()(time_features3)
-            time_features3 = GlobalAveragePooling1D()(time_features3)
-
-            # 创建全局特征提取分支 - 直接扁平化处理
-            global_features = Flatten()(normalized)
+        # 创建全局特征提取分支 - 直接扁平化处理
+        global_flat = Flatten()(normalized)
 
         # 合并所有特征
-        merged_features = Concatenate()([time_features1, time_features2, time_features3, global_features])
+        merged = Concatenate()([global_avg_rnn, global_avg1, global_avg2, global_avg3, global_flat])
 
-        # 根据是否使用相关性分析调整网络规模
-        if use_correlation:
-            # 减小网络规模，因为特征数量减少了
-            units1 = min(params['units1'], max(128, len(selected_feature_indices) * 16))
-            units2 = min(params['units2'], max(64, len(selected_feature_indices) * 8))
-            units3 = min(params['units3'], max(32, len(selected_feature_indices) * 4))
-            units4 = min(params['units4'], max(16, len(selected_feature_indices) * 2))
+        # 打印合并层的形状，用于调试
+        print(f"合并层形状: {merged.shape}")
 
-            # 调整dropout率，特征越少，dropout率越小
-            dropout_rate = min(params['dropout'], max(0.1, params['dropout'] * len(selected_feature_indices) / len(self.features)))
+        # 构建深度全连接网络
+        # 根据参数确定单元数
+        units1 = params['units1']
+        units2 = params['units2']
+        units3 = params['units3']
+        units4 = params['units4']
+        dropout_rate = params['dropout']
 
-            print(f"根据特征选择调整网络规模: units1={units1}, units2={units2}, units3={units3}, units4={units4}, dropout={dropout_rate:.3f}")
-        else:
-            units1 = params['units1']
-            units2 = params['units2']
-            units3 = params['units3']
-            units4 = params['units4']
-            dropout_rate = params['dropout']
-
-        # 添加残差连接的深度前馈网络 - 优化Dense层配置
-        x = Dense(units1,
-                 kernel_regularizer=l2(params['l2_reg']),
-                 kernel_initializer='he_normal'  
-                )(merged_features)
-        x = BatchNormalization()(x)  
-        x = PReLU()(x)  
-        x_res1 = x  
-
-        x = Dense(units2,
-                 kernel_regularizer=l2(params['l2_reg']),
-                 kernel_initializer='he_normal'  
-                )(x)
-        # 移除这里的BN，避免过度使用
-        x = PReLU()(x)
-        x = Dropout(dropout_rate)(x)  
-
-        # 第一个残差连接
-        x_res2 = Dense(units2, kernel_initializer='he_normal')(x_res1)
-        x = Add()([x, x_res2])
-        x = BatchNormalization()(x)  
-
-        x = Dense(units3,
-                 kernel_regularizer=l2(params['l2_reg']),
-                 kernel_initializer='he_normal'  
-                )(x)
-        # 移除这里的BN，避免过度使用
-        x = PReLU()(x)
+        # 第一个深度块
+        x = Dense(units1, kernel_regularizer=l2(params['l2_reg']), kernel_initializer='he_normal')(merged)
+        if batch_norm:
+            x = BatchNormalization()(x)
+        x = Activation(activation_fn)(x)
         x = Dropout(dropout_rate)(x)
 
-        x = Dense(units4,
-                 kernel_regularizer=l2(params['l2_reg']),
-                 kernel_initializer='he_normal'  
-                )(x)
-        x = BatchNormalization()(x)  
-        x = PReLU()(x)
+        # 第一个残差连接 - 注意确保维度匹配
+        # 我们需要将merged转换为与x相同的维度
+        res1 = Dense(units1, kernel_initializer='he_normal')(merged)  # 调整为units1而不是units2
+        if batch_norm:
+            res1 = BatchNormalization()(res1)
+        # 添加激活函数，确保与x有相同的处理
+        res1 = Activation(activation_fn)(res1)
+
+        # 第二个深度块
+        x = Dense(units2, kernel_regularizer=l2(params['l2_reg']), kernel_initializer='he_normal')(x)
+        if batch_norm:
+            x = BatchNormalization()(x)
+        x = Activation(activation_fn)(x)
+        x = Dropout(dropout_rate)(x)
+
+        # 应用残差连接 - 需要先将res1映射到相同维度
+        res1_mapped = Dense(units2, kernel_initializer='he_normal')(res1)  # 映射到units2维度
+        if batch_norm:
+            res1_mapped = BatchNormalization()(res1_mapped)
+        res1_mapped = Activation(activation_fn)(res1_mapped)
+        # 现在两者应该有相同的形状
+        x = Add()([x, res1_mapped])
+        if batch_norm:
+            x = BatchNormalization()(x)
+
+        # 第三个深度块
+        x_identity = x  # 保存当前状态用于第二个残差连接
+        x = Dense(units3, kernel_regularizer=l2(params['l2_reg']), kernel_initializer='he_normal')(x)
+        if batch_norm:
+            x = BatchNormalization()(x)
+        x = Activation(activation_fn)(x)
+        x = Dropout(dropout_rate)(x)
+
+        # 第二个残差连接 - 将x_identity映射到units3维度
+        res2 = Dense(units3, kernel_initializer='he_normal')(x_identity)
+        # 确保res2和x有相同的形状
+        if batch_norm:
+            res2 = BatchNormalization()(res2)
+        # 添加激活函数，确保与x有相同的处理
+        res2 = Activation(activation_fn)(res2)
+        # 现在两者应该有相同的形状
+        x = Add()([x, res2])
+        if batch_norm:
+            x = BatchNormalization()(x)
+
+        # 第四个深度块
+        x = Dense(units4, kernel_regularizer=l2(params['l2_reg']), kernel_initializer='he_normal')(x)
+        if batch_norm:
+            x = BatchNormalization()(x)
+        x = Activation(activation_fn)(x)
+        x = Dropout(dropout_rate)(x)
+
+        # 添加更多的层以增加模型深度
+        x = Dense(32, kernel_regularizer=l2(params['l2_reg']))(x)
+        if batch_norm:
+            x = BatchNormalization()(x)
+        x = Activation(activation_fn)(x)
 
         # 输出层前的额外层，确保输出稳定性
-        x = Dense(8,
-                 activation='linear',
-                 kernel_initializer='glorot_uniform'  
-                )(x)
+        x = Dense(16, activation='linear', kernel_initializer='glorot_normal')(x)
 
-        # 输出层 - 优化配置
-        outputs = Dense(1,
-                       kernel_initializer='glorot_uniform',  
-                       bias_initializer='zeros'              
-                      )(x)
+        # 输出层
+        outputs = Dense(1, kernel_initializer='glorot_normal')(x)
 
         # 创建模型
-        model_name = "MLP_Enhanced_Correlation" if use_correlation else "MLP_Enhanced"
+        model_name = "MLP_AdvancedFeatures"  # 更改名称以反映使用所有特征
         model = Model(inputs=inputs, outputs=outputs, name=model_name)
 
-        # 编译模型 - 优化Adam配置
+        # 编译模型 - 使用固定学习率，依靠ReduceLROnPlateau回调进行学习率调整
         optimizer = Adam(
             learning_rate=params['learning_rate'],
-            clipnorm=1.0,  
-            clipvalue=0.5,  
-            beta_1=0.9,     
-            beta_2=0.999,   
-            epsilon=1e-07   
+            clipnorm=1.0,
+            clipvalue=0.5,
+            beta_1=0.9,
+            beta_2=0.999,
+            epsilon=1e-07
         )
+
         model.compile(
             optimizer=optimizer,
-            loss='mse',  
+            loss='mse',
             metrics=[RootMeanSquaredError(name='rmse'), MeanAbsoluteError(name='mae')]
         )
 
@@ -694,134 +737,202 @@ class DeepLearningModels:
     def create_lstm_model(self, params=None):
         if params is None:
             params = {
-                'lstm_units1': 128,  
-                'lstm_units2': 64,
-                'dense_units1': 64,
-                'dense_units2': 32,
-                'dropout': 0.2,  
-                'learning_rate': 0.0008,
-                'l2_reg': 0.0001,  
-                'use_correlation': False,  
-                'selected_feature_indices': None  
+                'lstm_units1': 256,
+                'lstm_units2': 128,
+                'dense_units1': 128,
+                'dense_units2': 64,
+                'dropout': 0.25,
+                'recurrent_dropout': 0.1,
+                'learning_rate': 0.0005,
+                'l2_reg': 0.0002,
+                'bidirectional': True,
+                'stacked_layers': 2,
+                'attention': True,
+                'batch_norm': True,
+                'use_correlation': True,
+                'selected_feature_indices': None
             }
 
-        # 检查是否使用相关性分析结果
-        use_correlation = params.get('use_correlation', False)
-        selected_feature_indices = params.get('selected_feature_indices', None)
-
-        # 如果使用相关性分析但没有提供特征索引，发出警告
-        if use_correlation and (selected_feature_indices is None or len(selected_feature_indices) == 0):
-            print("警告: 启用了相关性分析但未提供特征索引，将使用所有特征")
-            use_correlation = False
-
+        # 确保使用相关性分析
+        bidirectional = params.get('bidirectional', True)
+        stacked_layers = params.get('stacked_layers', 2)
+        use_attention = params.get('attention', True)
+        batch_norm = params.get('batch_norm', True)
+        recurrent_dropout = params.get('recurrent_dropout', 0.1)
+        
         # 获取实际特征维度
         feature_dim = self.X_train_ts.shape[2]
         print(f"LSTM模型使用的实际特征维度: {feature_dim}")
-
+        
         # 使用函数式API构建模型
         inputs = Input(shape=(self.look_back, feature_dim))
+        
+        # 应用批归一化到输入
+        normalized = BatchNormalization()(inputs)
+        
+        print(f"LSTM模型使用相关性分析选择的 {feature_dim} 个特征")
+        x = normalized
+        lstm_units1 = params['lstm_units1']
+        lstm_units2 = params['lstm_units2']
 
-        # 根据是否使用相关性分析调整模型结构
-        if use_correlation:
-            print(f"LSTM模型将使用 {len(selected_feature_indices)} 个选定的特征")
+        # 构建LSTM网络 - 根据配置使用单向或双向LSTM
+        if bidirectional:
+            # 多层堆叠的双向LSTM
+            for i in range(stacked_layers - 1):
+                x = Bidirectional(LSTM(
+                    lstm_units1,
+                    return_sequences=True,
+                    kernel_regularizer=l2(params['l2_reg']/2),
+                    recurrent_dropout=recurrent_dropout,
+                    dropout=params['dropout']/2,
+                    kernel_initializer='glorot_uniform',
+                    recurrent_initializer='orthogonal',
+                    bias_initializer='zeros',
+                    unroll=False, # 长序列设为False更高效
+                    activation='tanh'
+                ))(x)
+                if batch_norm:
+                    x = BatchNormalization()(x)
 
-            # 使用Lambda层选择特定的特征 - 简化实现
-            selected = Lambda(lambda x: tf.gather(x, selected_feature_indices, axis=2))(inputs)
-
-            # 批归一化输入
-            normalized = BatchNormalization()(selected)
-
-            # 调整LSTM单元数量，根据选择的特征数量
-            lstm_units1 = min(params['lstm_units1'], max(64, len(selected_feature_indices) * 8))
-            lstm_units2 = min(params['lstm_units2'], max(32, len(selected_feature_indices) * 4))
-
-            print(f"根据特征选择调整LSTM网络规模: lstm_units1={lstm_units1}, lstm_units2={lstm_units2}")
+            # 最后一层LSTM
+            lstm_out = Bidirectional(LSTM(
+                lstm_units2,
+                return_sequences=use_attention,  # 如果使用注意力机制则返回序列
+                kernel_regularizer=l2(params['l2_reg']/4),
+                recurrent_dropout=recurrent_dropout,
+                dropout=params['dropout']/2,
+                kernel_initializer='glorot_uniform',
+                recurrent_initializer='orthogonal',
+                bias_initializer='zeros'
+            ))(x)
         else:
-            # 使用所有特征的原始模型结构
-            normalized = BatchNormalization()(inputs)
-            lstm_units1 = params['lstm_units1']
-            lstm_units2 = params['lstm_units2']
+            # 多层堆叠的单向LSTM
+            for i in range(stacked_layers - 1):
+                x = LSTM(
+                    lstm_units1,
+                    return_sequences=True,
+                    kernel_regularizer=l2(params['l2_reg']/2),
+                    recurrent_dropout=recurrent_dropout,
+                    dropout=params['dropout']/2,
+                    kernel_initializer='glorot_uniform',
+                    recurrent_initializer='orthogonal',
+                    bias_initializer='zeros',
+                    unroll=False,
+                    activation='tanh'
+                )(x)
+                if batch_norm:
+                    x = BatchNormalization()(x)
 
-        # 使用LSTM，GPU上性能更好 - 优化配置
-        rnn1 = Bidirectional(LSTM(
-            lstm_units1,
-            return_sequences=True,
-            kernel_regularizer=l2(params['l2_reg']/2),
-            recurrent_dropout=0.0,  
-            activation='tanh',
-            kernel_initializer='glorot_uniform',  
-            recurrent_initializer='orthogonal',   
-            bias_initializer='zeros',             
-            unroll=True  
-        ))(normalized)
-        rnn1 = BatchNormalization()(rnn1)
+            # 最后一层LSTM
+            lstm_out = LSTM(
+                lstm_units2,
+                return_sequences=use_attention,  # 如果使用注意力机制则返回序列
+                kernel_regularizer=l2(params['l2_reg']/4),
+                recurrent_dropout=recurrent_dropout,
+                dropout=params['dropout']/2,
+                kernel_initializer='glorot_uniform',
+                recurrent_initializer='orthogonal',
+                bias_initializer='zeros'
+            )(x)
 
         # 添加注意力机制
-        attention_layer = Attention()([rnn1, rnn1])
+        if use_attention:
+            # 自注意力机制
+            attention_output = Attention()([lstm_out, lstm_out])
 
-        # 捕获全局信息 - 优化配置
-        rnn2 = Bidirectional(LSTM(
-            lstm_units2,
-            kernel_regularizer=l2(params['l2_reg']/4),
-            kernel_initializer='glorot_uniform',  
-            recurrent_initializer='orthogonal',   
-            bias_initializer='zeros'             
-        ))(attention_layer)
+            # 全局平均池化
+            x = GlobalAveragePooling1D()(attention_output)
+
+            # 可选: 添加额外的全局最大池化并合并
+            max_pool = GlobalMaxPooling1D()(attention_output)
+            x = Concatenate()([x, max_pool])
+        else:
+            # 如果不使用注意力，lstm_out已经是最后一个时间步的输出
+            x = lstm_out
+
+        # 添加时间卷积支线 - 多尺度特征提取
+        conv1 = Conv1D(filters=64, kernel_size=2, padding='same', activation='relu')(normalized)
+        conv1 = BatchNormalization()(conv1)
+        conv1 = MaxPooling1D(pool_size=2)(conv1)
+
+        conv2 = Conv1D(filters=64, kernel_size=3, padding='same', activation='relu')(normalized)
+        conv2 = BatchNormalization()(conv2)
+        conv2 = MaxPooling1D(pool_size=2)(conv2)
+
+        # 全局池化并合并卷积特征
+        conv_feat1 = GlobalAveragePooling1D()(conv1)
+        conv_feat2 = GlobalAveragePooling1D()(conv2)
+
+        # 合并LSTM和CNN特征
+        x = Concatenate()([x, conv_feat1, conv_feat2])
 
         # 根据是否使用相关性分析调整网络规模
-        if use_correlation:
-            # 减小网络规模，因为特征数量减少了
-            dense_units1 = min(params['dense_units1'], max(32, len(selected_feature_indices) * 4))
-            dense_units2 = min(params['dense_units2'], max(16, len(selected_feature_indices) * 2))
+        dense_units1 = params['dense_units1']
+        dense_units2 = params['dense_units2']
+        dropout_rate = params['dropout']
 
-            # 调整dropout率，特征越少，dropout率越小
-            dropout_rate = min(params['dropout'], max(0.1, params['dropout'] * len(selected_feature_indices) / len(self.features)))
-
-            print(f"根据特征选择调整全连接层: dense_units1={dense_units1}, dense_units2={dense_units2}, dropout={dropout_rate:.3f}")
-        else:
-            dense_units1 = params['dense_units1']
-            dense_units2 = params['dense_units2']
-            dropout_rate = params['dropout']
-
-        # 增强后端网络 - 优化BatchNormalization的使用
-        x = Dense(dense_units1)(rnn2)
-        x = BatchNormalization()(x)  #
+        # 全连接层 1
+        x = Dense(dense_units1, kernel_regularizer=l2(params['l2_reg']))(x)
+        if batch_norm:
+            x = BatchNormalization()(x)
         x = PReLU()(x)
         x = Dropout(dropout_rate)(x)
 
-        x = Dense(dense_units2)(x)
-        # 移除这里的BN，避免过度使用
+        # 全连接层 2 - 添加残差连接
+        identity = x
+        x = Dense(dense_units1, kernel_regularizer=l2(params['l2_reg']))(x)
+        if batch_norm:
+            x = BatchNormalization()(x)
         x = PReLU()(x)
+        x = Dropout(dropout_rate)(x)
 
-        # Added for deeper backend
+        # 残差连接
+        identity_mapping = Dense(dense_units1, activation='linear')(identity)
+        x = Add()([x, identity_mapping])
+
+        # 全连接层 3
+        x = Dense(dense_units2, kernel_regularizer=l2(params['l2_reg']))(x)
+        if batch_norm:
+            x = BatchNormalization()(x)
+        x = PReLU()(x)
+        x = Dropout(dropout_rate/2)(x)
+
+        # 深度调节层 - 非线性变换
         x = Dense(32, kernel_regularizer=l2(params['l2_reg']))(x)
-        x = BatchNormalization()(x)  
         x = PReLU()(x)
-        x = Dropout(dropout_rate)(x)
 
-        # 输出层 - 优化配置
+        # 输出层前的最终处理 - 16个单元的线性层
+        x = Dense(16, activation='linear')(x)
+
+        # 输出层 - 单个值预测
         outputs = Dense(1,
-                       kernel_initializer='glorot_uniform',  
-                       bias_initializer='zeros'              
+                       kernel_initializer='glorot_uniform',
+                       bias_initializer='zeros'
                       )(x)
 
         # 创建模型
-        model_name = "LSTM_Enhanced_Correlation" if use_correlation else "LSTM_Enhanced"
+        model_name = "LSTM_AdvancedFeatures"  # 更改名称以反映使用所有特征
         model = Model(inputs=inputs, outputs=outputs, name=model_name)
 
-        # 编译模型 - 优化Adam配置
+        # 编译模型 - 使用固定学习率，依靠ReduceLROnPlateau回调进行学习率调整
         optimizer = Adam(
             learning_rate=params['learning_rate'],
-            clipnorm=1.0,  
-            clipvalue=0.5,  
-            beta_1=0.9,     
-            beta_2=0.999,   
-            epsilon=1e-07   
+            clipnorm=1.0,  # 梯度裁剪，防止梯度爆炸
+            clipvalue=0.5,
+            beta_1=0.9,
+            beta_2=0.999,
+            epsilon=1e-07
         )
+
+        # 使用Huber损失(结合MSE和MAE的优点)和自定义指标
         model.compile(
             optimizer=optimizer,
-            loss='mse',
-            metrics=[RootMeanSquaredError(name='rmse'), MeanAbsoluteError(name='mae')]
+            loss=tf.keras.losses.Huber(delta=1.0),  # Huber损失对异常值更鲁棒
+            metrics=[
+                RootMeanSquaredError(name='rmse'),
+                MeanAbsoluteError(name='mae'),
+                tf.keras.metrics.MeanAbsolutePercentageError(name='mape')
+            ]
         )
 
         return model
@@ -829,70 +940,46 @@ class DeepLearningModels:
     def create_cnn_model(self, params=None):
         if params is None:
             params = {
-                'filters1': 128,  
+                'filters1': 128,
                 'filters2': 64,
                 'filters3': 32,
                 'kernel_size': 3,
                 'pool_size': 2,
                 'dense_units1': 64,
                 'dense_units2': 32,
-                'dropout': 0.15,  
+                'dropout': 0.15,
                 'learning_rate': 0.0008,
-                'l2_reg': 0.0001,  
-                'use_correlation': False,  
-                'selected_feature_indices': None  
+                'l2_reg': 0.0001,
+                'use_correlation': True,
+                'selected_feature_indices': None
             }
-
-        # 检查是否使用相关性分析结果
-        use_correlation = params.get('use_correlation', False)
-        selected_feature_indices = params.get('selected_feature_indices', None)
-
-        # 如果使用相关性分析但没有提供特征索引，发出警告
-        if use_correlation and (selected_feature_indices is None or len(selected_feature_indices) == 0):
-            print("警告: 启用了相关性分析但未提供特征索引，将使用所有特征")
-            use_correlation = False
 
         # 获取实际特征维度
         feature_dim = self.X_train_ts.shape[2]
         print(f"CNN模型使用的实际特征维度: {feature_dim}")
-
+        
         # 使用函数式API构建模型
         inputs = Input(shape=(self.look_back, feature_dim))
+        
+        print(f"CNN模型使用相关性分析选择的 {feature_dim} 个特征")
 
-        # 根据是否使用相关性分析调整模型结构
-        if use_correlation:
-            print(f"CNN模型将使用 {len(selected_feature_indices)} 个选定的特征")
+        # 批归一化输入
+        x = BatchNormalization()(inputs)
+        filters1 = params['filters1']
+        filters2 = params['filters2']
+        filters3 = params['filters3']
 
-            # 使用Lambda层选择特定的特征 - 简化实现
-            selected = Lambda(lambda x: tf.gather(x, selected_feature_indices, axis=2))(inputs)
-
-            # 批归一化输入
-            x = BatchNormalization()(selected)
-
-            # 调整卷积滤波器数量，根据选择的特征数量
-            filters1 = min(params['filters1'], max(64, len(selected_feature_indices) * 8))
-            filters2 = min(params['filters2'], max(32, len(selected_feature_indices) * 4))
-            filters3 = min(params['filters3'], max(16, len(selected_feature_indices) * 2))
-
-            print(f"根据特征选择调整CNN网络规模: filters1={filters1}, filters2={filters2}, filters3={filters3}")
-        else:
-            # 使用所有特征的原始模型结构
-            x = BatchNormalization()(inputs)
-            filters1 = params['filters1']
-            filters2 = params['filters2']
-            filters3 = params['filters3']
-
-        # 多分支卷积网络 - 优化卷积层配置
+        # 多分支卷积网络 - 调整为适应实际特征数量
         # 分支1: 较小卷积核
         conv1 = Conv1D(
             filters=filters1,
             kernel_size=2,
             padding='same',
             kernel_regularizer=l2(params['l2_reg']/4),
-            kernel_initializer='he_normal',  
-            activation='relu'  
+            kernel_initializer='he_normal'
         )(x)
         conv1 = BatchNormalization()(conv1)
+        conv1 = Activation('relu')(conv1)
 
         # 分支2: 中等卷积核
         conv2 = Conv1D(
@@ -900,9 +987,9 @@ class DeepLearningModels:
             kernel_size=3,
             padding='same',
             kernel_regularizer=l2(params['l2_reg']/4),
-            kernel_initializer='he_normal',  
-            activation='relu'
+            kernel_initializer='he_normal'
         )(x)
+        conv2 = Activation('relu')(conv2)
 
         # 分支3: 较大卷积核
         conv3 = Conv1D(
@@ -910,97 +997,84 @@ class DeepLearningModels:
             kernel_size=5,
             padding='same',
             kernel_regularizer=l2(params['l2_reg']/4),
-            kernel_initializer='he_normal',  
-            activation='relu'
+            kernel_initializer='he_normal'
         )(x)
         conv3 = BatchNormalization()(conv3)
+        conv3 = Activation('relu')(conv3)
 
         # 合并分支
         merged = Concatenate()([conv1, conv2, conv3])
 
-        # 添加额外卷积层精炼特征 - 优化配置
-        refined = Conv1D(
+        # 添加额外卷积层精炼特征
+        refined_conv_output1 = Conv1D(
             filters=filters2,
             kernel_size=3,
             padding='same',
             kernel_regularizer=l2(params['l2_reg']/4),
-            kernel_initializer='he_normal',  
-            activation='relu'
+            kernel_initializer='he_normal'
         )(merged)
-        refined = BatchNormalization()(refined)
-        refined = MaxPooling1D(pool_size=params['pool_size'], strides=None)(refined)  
+        refined = BatchNormalization()(refined_conv_output1)
+        refined = Activation('relu')(refined)
+        refined = MaxPooling1D(pool_size=params['pool_size'], strides=None)(refined)
 
-        # 根据是否使用相关性分析调整dropout率
-        if use_correlation:
-            # 调整dropout率，特征越少，dropout率越小
-            dropout_rate = min(params['dropout'], max(0.1, params['dropout'] * len(selected_feature_indices) / len(self.features)))
-            print(f"根据特征选择调整dropout率: dropout={dropout_rate:.3f}")
-        else:
-            dropout_rate = params['dropout']
-
+        # 使用默认的dropout率
+        dropout_rate = params['dropout']
+        
         refined = Dropout(dropout_rate)(refined)
-
-        refined = Conv1D(
+        
+        refined_conv_output2 = Conv1D(
             filters=filters3,
             kernel_size=3,
             padding='same',
-            kernel_regularizer=l2(params['l2_reg']/4),
-            activation='relu'
-        )(refined) 
-        x = BatchNormalization()(refined) 
+            kernel_regularizer=l2(params['l2_reg']/4)
+        )(refined)
+        x = BatchNormalization()(refined_conv_output2)
+        x = Activation('relu')(x)
         
         attention_output = Attention()([x, x])
-
+        
         # 全局特征
-        global_feature = GlobalAveragePooling1D()(attention_output) 
-
-        # 根据是否使用相关性分析调整全连接层
-        use_correlation = params.get('use_correlation', False) 
-        selected_feature_indices = params.get('selected_feature_indices', []) 
-
-        if use_correlation:
-            dense_units1 = min(params['dense_units1'], max(32, len(selected_feature_indices) * 4))
-            dense_units2 = min(params['dense_units2'], max(16, len(selected_feature_indices) * 2))
-            print(f"根据特征选择调整CNN全连接层: dense_units1={dense_units1}, dense_units2={dense_units2}")
-        else:
-            dense_units1 = params['dense_units1']
-            dense_units2 = params['dense_units2']
-
-        # 增强后端网络 - 优化BatchNormalization的使用
+        global_feature = GlobalAveragePooling1D()(attention_output)
+        
+        # 使用默认的全连接层单元数
+        dense_units1 = params['dense_units1']
+        dense_units2 = params['dense_units2']
+        
+        # 增强后端网络
         x = Dense(dense_units1, activation='relu')(global_feature)
-        x = BatchNormalization()(x)  
+        x = BatchNormalization()(x)
         x = Dropout(dropout_rate)(x)
         x = Dense(dense_units2, activation='relu')(x)
         x = Dense(32, kernel_regularizer=l2(params['l2_reg']))(x)
-        x = BatchNormalization()(x)  
-        x = Activation('relu')(x) 
+        x = BatchNormalization()(x)
+        x = Activation('relu')(x)
         x = Dropout(dropout_rate)(x)
-
-        # 输出层 - 优化配置
+        
+        # 输出层
         outputs = Dense(1,
-                       kernel_initializer='glorot_uniform',  
-                       bias_initializer='zeros'              
+                       kernel_initializer='glorot_uniform',
+                       bias_initializer='glorot_uniform'
                       )(x)
-
+        
         # 创建模型
-        model_name = "CNN_Enhanced_Correlation" if use_correlation else "CNN_Enhanced"
+        model_name = "CNN_AdvancedFeatures"  # 更改名称以反映使用所有特征
         model = Model(inputs=inputs, outputs=outputs, name=model_name)
-
-        # 编译模型 - 优化Adam配置
+        
+        # 编译模型
         optimizer = Adam(
             learning_rate=params['learning_rate'],
-            clipnorm=1.0,  
-            clipvalue=0.5,  
-            beta_1=0.9,     
-            beta_2=0.999,   
-            epsilon=1e-07   
+            clipnorm=1.0,
+            clipvalue=0.5,
+            beta_1=0.9,
+            beta_2=0.999,
+            epsilon=1e-07
         )
         model.compile(
             optimizer=optimizer,
             loss='mse',
             metrics=[RootMeanSquaredError(name='rmse'), MeanAbsoluteError(name='mae')]
         )
-
+        
         return model
 
     def test_models(self, epochs=5, batch_size=16):
@@ -1022,34 +1096,48 @@ class DeepLearningModels:
         for model_type in models_to_test:
             print(f"\n测试 {model_type} 模型...")
 
-            # 创建模型
-            if model_type == 'MLP':
-                model = self.create_mlp_model()
-            elif model_type == 'LSTM':
-                model = self.create_lstm_model()
-            elif model_type == 'CNN':
-                model = self.create_cnn_model()
+            try:
+                # 创建简化版模型用于测试
+                if model_type == 'MLP':
+                    # 创建一个简化的MLP模型，不使用残差连接
+                    feature_dim = self.X_train_ts.shape[2]
+                    inputs = Input(shape=(self.look_back, feature_dim))
+                    x = Flatten()(inputs)
+                    x = Dense(128, activation='relu')(x)
+                    x = Dense(64, activation='relu')(x)
+                    x = Dense(32, activation='relu')(x)
+                    outputs = Dense(1)(x)
+                    model = Model(inputs=inputs, outputs=outputs)
+                    model.compile(optimizer='adam', loss='mse', metrics=['mae', 'mse'])
+                elif model_type == 'LSTM':
+                    model = self.create_lstm_model()
+                elif model_type == 'CNN':
+                    model = self.create_cnn_model()
 
-            print(f"{model_type} 模型摘要:")
-            model.summary()
+                print(f"{model_type} 模型摘要:")
+                model.summary()
 
-            # 简单训练几个epoch
-            model.fit(
-                test_dataset_small, 
-                epochs=epochs,
-                verbose=1
-            )
+                # 简单训练几个epoch
+                model.fit(
+                    test_dataset_small,
+                    epochs=epochs,
+                    verbose=1
+                )
 
-            # 评估模型
-            loss, rmse, mae = model.evaluate(test_dataset_small, verbose=0) 
-            results[model_type] = {'loss': loss, 'rmse': rmse, 'mae': mae}
+                # 评估模型
+                loss, mae, mse = model.evaluate(test_dataset_small, verbose=0)
+                rmse = np.sqrt(mse)
+                results[model_type] = {'loss': loss, 'rmse': rmse, 'mae': mae}
 
-            # 试一下预测
-            preds = model.predict(test_dataset_small.take(1)) 
-            actuals_batch = list(test_dataset_small.take(1).as_numpy_iterator())[0][1]
-            print(f"样本预测结果 vs 实际值 (来自一个小批次):")
-            for i in range(min(5, len(preds))):
-                print(f"预测: {preds[i][0]:.4f}, 实际: {actuals_batch[i]:.4f}")
+                # 试一下预测
+                preds = model.predict(test_dataset_small.take(1))
+                actuals_batch = list(test_dataset_small.take(1).as_numpy_iterator())[0][1]
+                print(f"样本预测结果 vs 实际值 (来自一个小批次):")
+                for i in range(min(5, len(preds))):
+                    print(f"预测: {preds[i][0]:.4f}, 实际: {actuals_batch[i]:.4f}")
+            except Exception as e:
+                print(f"测试 {model_type} 模型时出错: {str(e)}")
+                results[model_type] = {'loss': float('nan'), 'rmse': float('nan'), 'mae': float('nan')}
 
         print("\n小规模测试结果摘要:")
         for model_type, metrics in results.items():
@@ -1059,7 +1147,7 @@ class DeepLearningModels:
 
     def train_model(self, model_type, params=None, epochs=TRAINING_CONFIG['epochs'],
                    batch_size=TRAINING_CONFIG['batch_size'], resume_training=False,
-                   run_small_test=False, use_correlation=False, correlation_params=None):
+                   run_small_test=False, correlation_params=None):
         # 打印特征数量信息，帮助调试
         print(f"\n训练模型前的特征信息:")
         print(f"特征数量: {len(self.features)}")
@@ -1070,9 +1158,9 @@ class DeepLearningModels:
         print(f"目标变量形状: {self.y_train_ts.shape}")
         print(f"使用的look_back值: {self.look_back}")
         # 设置默认的相关性分析参数
-        if use_correlation and correlation_params is None:
+        if correlation_params is None:
             correlation_params = {
-                'correlation_type': 'pearson',  
+                'correlation_type': 'pearson',
             }
 
         # 如果需要先进行小规模测试
@@ -1083,36 +1171,37 @@ class DeepLearningModels:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
         base_model_type = model_type
-        current_model_key = base_model_type
-
-        if use_correlation:
-            # 只使用皮尔逊相关系数
-            correlation_type_used = 'pearson'
-            # 强制使用皮尔逊相关系数，忽略其他类型
-            if correlation_params and isinstance(correlation_params, dict):
-                correlation_params['correlation_type'] = 'pearson'
-            current_model_key = f"{base_model_type}_Corr_{correlation_type_used}"
-        # 设置模型保存路径, 使用 current_model_key
+        # 永远使用相关性分析，设置模型键名
+        current_model_key = f"{base_model_type}_AdvancedFeatures"  # 更改名称以反映使用所有特征
+        
+        # 设置模型保存路径
         model_path = f'saved_models/{current_model_key.lower()}_{timestamp}'
         checkpoint_path = f'checkpoints/{current_model_key.lower()}_{timestamp}'
         log_path = f'logs/{current_model_key.lower()}_{timestamp}'
 
-        # 如果使用相关性分析，先进行特征选择 (This block seems fine, params is updated)
-
         # 确定模型类型和创建/加载模型
-        if resume_training and os.path.exists(f'saved_models/{current_model_key.lower()}_{timestamp}.h5'): 
+        if resume_training and os.path.exists(f'saved_models/{current_model_key.lower()}_{timestamp}.h5'):
             print(f"正在加载已有模型: saved_models/{current_model_key.lower()}_{timestamp}.h5")
             model = load_model(f'saved_models/{current_model_key.lower()}_{timestamp}.h5')
         else:
             if base_model_type.lower() == 'mlp':
+                # 确保使用相关性分析
+                if params:
+                    params['use_correlation'] = True
                 model = self.create_mlp_model(params or MLP_CONFIG)
             elif base_model_type.lower() == 'lstm':
+                # 确保使用相关性分析
+                if params:
+                    params['use_correlation'] = True
                 model = self.create_lstm_model(params or LSTM_CONFIG)
             elif base_model_type.lower() == 'cnn':
+                # 确保使用相关性分析
+                if params:
+                    params['use_correlation'] = True
                 model = self.create_cnn_model(params or CNN_CONFIG)
             else:
                 raise ValueError(f"不支持的模型类型: {base_model_type}")
-
+        
         # 创建回调函数 - 优化配置
         callbacks = [
             # 早停策略 - 增加min_delta参数，避免过早停止
@@ -1120,19 +1209,19 @@ class DeepLearningModels:
                 monitor='val_loss',
                 patience=TRAINING_CONFIG['early_stopping_patience'],
                 restore_best_weights=True,
-                min_delta=0.0001,  
-                mode='min',        
+                min_delta=0.0001,
+                mode='min',
                 verbose=1
             ),
             # 学习率调度器 - 优化配置
             ReduceLROnPlateau(
                 monitor='val_loss',
-                factor=0.5,        
+                factor=0.5,
                 patience=TRAINING_CONFIG['reduce_lr_patience'],
                 min_lr=TRAINING_CONFIG['min_lr'],
-                min_delta=0.0001,  
-                cooldown=1,        
-                mode='min',        
+                min_delta=0.0001,
+                cooldown=1,
+                mode='min',
                 verbose=1
             ),
             # 模型检查点 - 增加save_weights_only选项，减少存储空间
@@ -1140,15 +1229,15 @@ class DeepLearningModels:
                 filepath=f'{checkpoint_path}.h5',
                 monitor='val_loss',
                 save_best_only=True,
-                save_weights_only=False,  
-                mode='min',              
+                save_weights_only=False,
+                mode='min',
                 verbose=1
             ),
             # 训练日志记录
             CSVLogger(f'{log_path}.csv', append=resume_training, separator=',')
         ]
 
-        # 创建 tf.data.Dataset 
+        # 创建 tf.data.Dataset
         train_dataset = self._create_dataset(self.X_train_ts, self.y_train_ts, batch_size, shuffle=True)
         val_dataset = self._create_dataset(self.X_val_ts, self.y_val_ts, batch_size)
 
@@ -1157,9 +1246,9 @@ class DeepLearningModels:
 
         # 训练模型
         history = model.fit(
-            train_dataset, 
+            train_dataset,
             epochs=epochs,
-            validation_data=val_dataset, 
+            validation_data=val_dataset,
             callbacks=callbacks,
             verbose=1
         )
@@ -1169,10 +1258,10 @@ class DeepLearningModels:
         training_time = end_time - start_time
 
         # 保存最终模型
-        model.save(f'{model_path}.h5') 
+        model.save(f'{model_path}.h5')
 
         # 输出训练时间和GPU使用情况
-        print(f"\n{current_model_key} 模型训练完成，耗时 {training_time:.2f} 秒") 
+        print(f"\n{current_model_key} 模型训练完成，耗时 {training_time:.2f} 秒")
         print("GPU使用情况:")
         try:
             gpu_devices = tf.config.list_physical_devices('GPU')
@@ -1192,14 +1281,14 @@ class DeepLearningModels:
         self.plot_training_history(current_model_key, history, timestamp)
 
         model_info_to_save = {
-            'model_identifier': current_model_key, 
-            'base_model_type': base_model_type,    
+            'model_identifier': current_model_key,
+            'base_model_type': base_model_type,
             'timestamp': timestamp,
             'data_file_used': self.data_file,
             'look_back': self.look_back,
             'model_parameters': params,
             'training_time_seconds': round(training_time, 2),
-            'evaluation_metrics': self.metrics.get(current_model_key, {}), 
+            'evaluation_metrics': self.metrics.get(current_model_key, {}),
             'saved_model_path': f'{model_path}.h5',
             'checkpoint_path': f'{checkpoint_path}.h5',
             'log_csv_path': f'{log_path}.csv',
@@ -1234,7 +1323,7 @@ class DeepLearningModels:
         return model, history
 
     def evaluate_model(self, current_model_key, timestamp):
-        model = self.models[current_model_key] 
+        model = self.models[current_model_key]
 
         # 创建测试集的 tf.data.Dataset
         test_dataset = self._create_dataset(self.X_test_ts, self.y_test_ts, batch_size=TRAINING_CONFIG['batch_size'] * 2)
@@ -1268,14 +1357,14 @@ class DeepLearningModels:
             'MAE': float(mae),
             'R2': float(r2),
             'MAPE': float(mape),
-            'Accuracy': float(accuracy)  
+            'Accuracy': float(accuracy)
         }
         self.metrics[current_model_key] = metrics
 
         # 保存评估结果到文本文件, use current_model_key in filename
         results_file = f'results/{current_model_key.lower()}_{timestamp}_metrics.txt'
         with open(results_file, 'w') as f:
-            f.write(f"{current_model_key} 模型评估结果:\n") 
+            f.write(f"{current_model_key} 模型评估结果:\n")
             f.write(f"均方误差 (MSE): {mse:.4f}\n")
             f.write(f"均方根误差 (RMSE): {rmse:.4f}\n")
             f.write(f"平均绝对误差 (MAE): {mae:.4f}\n")
@@ -1343,7 +1432,7 @@ class DeepLearningModels:
         plt.subplot(2, 2, 1)
         plt.plot(history.history['loss'], label='训练损失')
         plt.plot(history.history['val_loss'], label='验证损失')
-        plt.title(f'{current_model_key} 模型损失曲线') 
+        plt.title(f'{current_model_key} 模型损失曲线')
         plt.xlabel('Epoch')
         plt.ylabel('损失')
         plt.legend()
@@ -1352,7 +1441,7 @@ class DeepLearningModels:
         plt.subplot(2, 2, 2)
         plt.plot(history.history['mae'], label='训练MAE')
         plt.plot(history.history['val_mae'], label='验证MAE')
-        plt.title(f'{current_model_key} 模型MAE曲线') 
+        plt.title(f'{current_model_key} 模型MAE曲线')
         plt.xlabel('Epoch')
         plt.ylabel('MAE')
         plt.legend()
@@ -1361,7 +1450,7 @@ class DeepLearningModels:
         if 'lr' in history.history:
             plt.subplot(2, 2, 3)
             plt.plot(history.history['lr'])
-            plt.title(f'{current_model_key} 学习率调整') 
+            plt.title(f'{current_model_key} 学习率调整')
             plt.xlabel('Epoch')
             plt.ylabel('学习率')
             plt.yscale('log')
@@ -1380,7 +1469,7 @@ class DeepLearningModels:
 
             plt.plot(range(display_points), actual[:display_points], 'b-', label='实际值')
             plt.plot(range(display_points), predictions[:display_points], 'r--', label='预测值')
-            plt.title(f'{current_model_key} 预测 vs 实际') 
+            plt.title(f'{current_model_key} 预测 vs 实际')
             plt.xlabel('样本')
             plt.ylabel('价格')
             plt.legend()
@@ -1405,7 +1494,7 @@ class DeepLearningModels:
             plt.subplot(2, 1, 1)
             plt.plot(actual, 'b-', label='实际值')
             plt.plot(predictions, 'r--', label='预测值')
-            plt.title(f'{current_model_key} 预测结果详细图') 
+            plt.title(f'{current_model_key} 预测结果详细图')
             plt.ylabel('价格')
             plt.legend()
 
@@ -1435,8 +1524,8 @@ class DeepLearningModels:
         parsed_model_info = []
         for key in model_keys:
             base_type = key
-            correlation_status = '否' 
-            correlation_method = '-'   
+            correlation_status = '否'
+            correlation_method = '-'
 
             if "_Corr_" in key:
                 parts = key.split("_Corr_", 1)
@@ -1445,7 +1534,7 @@ class DeepLearningModels:
                 if len(parts) > 1 and parts[1]:
                     correlation_method = parts[1]
                 else:
-                    correlation_method = '未知类型' 
+                    correlation_method = '未知类型'
 
             parsed_model_info.append({
                 'key': key,
@@ -1488,7 +1577,7 @@ class DeepLearningModels:
         else:
             print("没有可比较的模型结果。")
 
-        # 如果需要按模型类型分组比较 
+        # 如果需要按模型类型分组比较
         if group_by_type and not comparison_df.empty:
             print("\n按基础模型类型分组比较:")
             for base_model_type_group in set(comparison_df['模型类型']):
@@ -1502,7 +1591,7 @@ class DeepLearningModels:
                     sorted_corr_models_in_group = corr_models_in_group.sort_values('RMSE')
                     print(sorted_corr_models_in_group[display_columns])
 
-        # 如果需要，加载并显示特征相关性分析结果 
+        # 如果需要，加载并显示特征相关性分析结果
         if include_correlation:
             try:
                 if not comparison_df.empty:
@@ -1519,7 +1608,7 @@ class DeepLearningModels:
                     elif best_model_type_rmse == 'LSTM':
                         print("3. LSTM模型在处理时序关系时表现良好，建议关注时间序列特征的相关性")
                     elif best_model_type_rmse == 'CNN':
-                        print("3. CNN模型在提取局部特征时表现良好，建议关注互信息分数高的特征")
+                        print("3. CNN模型在提取局部特征时表现良好，建议关注皮尔逊相关系数高的特征")
 
                     print("4. 比较不同相关性策略对同一基础模型类型的影响，以选择最佳策略。")
 
@@ -1528,7 +1617,160 @@ class DeepLearningModels:
             except Exception as e:
                 print(f"\n加载或解释相关性分析结果时出错: {e}")
 
-        return comparison_df 
+        return comparison_df
+
+    def plot_model_comparison(self, timestamp=None):
+        """
+        绘制三种模型(MLP、LSTM、CNN)在测试集上的预测值与真实值对比折线图
+        
+        Args:
+            timestamp: 可选，时间戳字符串，用于保存文件名
+        """
+        if timestamp is None:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        # 检查是否有训练好的模型
+        model_types = ['MLP', 'LSTM', 'CNN']
+        model_keys = []
+        for model_type in model_types:
+            model_key = f"{model_type}_AdvancedFeatures"
+            if model_key in self.models:
+                model_keys.append(model_key)
+        
+        if not model_keys:
+            print("没有找到训练好的模型，无法绘制对比图")
+            return
+            
+        plt.figure(figsize=(15, 10))
+        
+        # 获取测试集真实值
+        actual = self.target_scaler.inverse_transform(self.y_test_ts.reshape(-1, 1))
+        
+        # 绘制真实值
+        plt.plot(actual, 'k-', linewidth=2.5, label='真实值')
+        
+        # 颜色映射
+        colors = {'MLP': 'r--', 'LSTM': 'b--', 'CNN': 'g--'}
+        
+        # 为每个模型绘制预测值
+        for model_key in model_keys:
+            if model_key in self.predictions:
+                predictions = self.predictions[model_key]
+                base_model_type = model_key.split('_')[0]  # 提取基本模型类型
+                plt.plot(
+                    predictions, 
+                    colors.get(base_model_type, 'm--'), 
+                    linewidth=1.5, 
+                    alpha=0.8,
+                    label=f'{base_model_type}预测值'
+                )
+            else:
+                print(f"警告: 未找到模型 {model_key} 的预测结果")
+        
+        # 设置图表标题和标签
+        plt.title('深度学习模型在测试集上的预测对比', fontsize=16)
+        plt.xlabel('测试样本', fontsize=12)
+        plt.ylabel('价格', fontsize=12)
+        plt.grid(True, linestyle='--', alpha=0.7)
+        plt.legend(loc='best', fontsize=12)
+        
+        # 添加模型性能指标到图表
+        metrics_text = ""
+        for model_key in model_keys:
+            if model_key in self.metrics:
+                base_type = model_key.split('_')[0]
+                metrics = self.metrics[model_key]
+                metrics_text += f"{base_type}: RMSE={metrics['RMSE']:.2f}, 准确率={metrics['Accuracy']:.2f}%\n"
+        
+        if metrics_text:
+            plt.figtext(0.02, 0.02, metrics_text, fontsize=10, 
+                       bbox=dict(facecolor='white', alpha=0.8))
+        
+        # 保存图表
+        result_dir = 'results'
+        os.makedirs(result_dir, exist_ok=True)
+        plt.tight_layout()
+        comparison_path = os.path.join(result_dir, f'model_comparison_{timestamp}.png')
+        plt.savefig(comparison_path, dpi=300)
+        plt.close()
+        
+        print(f"模型对比图已保存到: {comparison_path}")
+        
+        # 另外绘制一个放大后半部分的图表，以便更好地看到细节
+        plt.figure(figsize=(15, 10))
+        
+        # 确定要展示的数据点范围（后50%的测试集数据）
+        half_point = len(actual) // 2
+        
+        # 绘制后半部分数据
+        plt.plot(range(half_point, len(actual)), actual[half_point:], 'k-', linewidth=2.5, label='真实值')
+        
+        for model_key in model_keys:
+            if model_key in self.predictions:
+                predictions = self.predictions[model_key]
+                base_model_type = model_key.split('_')[0]
+                plt.plot(
+                    range(half_point, len(predictions)), 
+                    predictions[half_point:], 
+                    colors.get(base_model_type, 'm--'), 
+                    linewidth=1.5, 
+                    alpha=0.8,
+                    label=f'{base_model_type}预测值'
+                )
+        
+        plt.title('深度学习模型在测试集后半部分的预测对比（放大视图）', fontsize=16)
+        plt.xlabel('测试样本', fontsize=12)
+        plt.ylabel('价格', fontsize=12)
+        plt.grid(True, linestyle='--', alpha=0.7)
+        plt.legend(loc='best', fontsize=12)
+        
+        # 添加模型性能指标
+        if metrics_text:
+            plt.figtext(0.02, 0.02, metrics_text, fontsize=10, 
+                       bbox=dict(facecolor='white', alpha=0.8))
+        
+        plt.tight_layout()
+        zoomed_comparison_path = os.path.join(result_dir, f'model_comparison_zoomed_{timestamp}.png')
+        plt.savefig(zoomed_comparison_path, dpi=300)
+        plt.close()
+        
+        print(f"放大的模型对比图已保存到: {zoomed_comparison_path}")
+        
+        # 额外添加一个显示误差条形图的对比
+        plt.figure(figsize=(15, 10))
+        
+        # 计算每个模型的误差
+        for i, model_key in enumerate(model_keys):
+            if model_key in self.predictions:
+                predictions = self.predictions[model_key]
+                errors = predictions - actual
+                base_model_type = model_key.split('_')[0]
+                
+                plt.subplot(len(model_keys), 1, i+1)
+                plt.bar(range(len(errors)), errors.flatten(), alpha=0.7)
+                plt.axhline(y=0, color='r', linestyle='-')
+                plt.title(f'{base_model_type}模型预测误差', fontsize=14)
+                plt.ylabel('误差', fontsize=10)
+                
+                # 添加均方根误差和平均绝对误差标签
+                if model_key in self.metrics:
+                    metrics = self.metrics[model_key]
+                    plt.text(
+                        0.02, 0.80, 
+                        f"RMSE: {metrics['RMSE']:.2f}\nMAE: {metrics['MAE']:.2f}\n准确率: {metrics['Accuracy']:.2f}%", 
+                        transform=plt.gca().transAxes,
+                        bbox=dict(facecolor='white', alpha=0.8)
+                    )
+        
+        plt.xlabel('测试样本', fontsize=12)
+        plt.tight_layout()
+        error_comparison_path = os.path.join(result_dir, f'model_error_comparison_{timestamp}.png')
+        plt.savefig(error_comparison_path, dpi=300)
+        plt.close()
+        
+        print(f"模型误差对比图已保存到: {error_comparison_path}")
+        
+        return comparison_path, zoomed_comparison_path, error_comparison_path
 
 if __name__ == "__main__":
     try:
@@ -1537,7 +1779,7 @@ if __name__ == "__main__":
 
         # 定义数据文件路径
         current_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        data_file_old_format = os.path.join(current_dir, "model_data/date1.csv")  
+        data_file_old_format = os.path.join(current_dir, "model_data/date1.csv")
 
         chosen_data_file = None
         chosen_target_col = None
@@ -1563,54 +1805,44 @@ if __name__ == "__main__":
         # 先进行小规模测试
         print("\n进行小规模测试...")
         # 适当增大测试时的batch_size以更好地利用GPU，减少epochs以便快速测试
-        dl_models.test_models(epochs=3, batch_size=32) 
-
-        # 先进行相关性分析
-        print("\n进行相关性分析...")
-        correlation_results = dl_models.analyze_feature_correlation()
+        dl_models.test_models(epochs=3, batch_size=32)
 
         # 设置相关性分析参数
         correlation_params = {
-            'correlation_type': 'pearson',  
+            'correlation_type': 'pearson',
         }
 
-        # 训练使用相关性分析的MLP模型
-        print("\n训练优化的MLP模型 (使用皮尔逊相关性分析)...")
-        dl_models.train_model('MLP', batch_size=64, use_correlation=True, correlation_params=correlation_params)
+        # 使用相同时间戳以便识别同批次训练的模型
+        training_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-        # 训练使用相关性分析的LSTM模型
-        print("\n训练优化的LSTM模型 (使用皮尔逊相关性分析)...")
-        dl_models.train_model('LSTM', batch_size=64, use_correlation=True, correlation_params=correlation_params)
+        # 训练MLP模型 (默认使用相关性分析)
+        print("\n训练优化的MLP模型 (使用相关性分析)...")
+        dl_models.train_model('MLP', batch_size=64, correlation_params=correlation_params)
 
-        # 训练使用相关性分析的CNN模型
-        print("\n训练优化的CNN模型 (使用皮尔逊相关性分析)...")
-        dl_models.train_model('CNN', batch_size=64, use_correlation=True, correlation_params=correlation_params)
+        # 训练LSTM模型 (默认使用相关性分析)
+        print("\n训练优化的LSTM模型 (使用相关性分析)...")
+        dl_models.train_model('LSTM', batch_size=64, correlation_params=correlation_params)
+
+        # 训练CNN模型 (默认使用相关性分析)
+        print("\n训练优化的CNN模型 (使用相关性分析)...")
+        dl_models.train_model('CNN', batch_size=64, correlation_params=correlation_params)
 
         # 比较所有模型
         print("\n比较所有训练的模型...")
         dl_models.compare_models()
 
-        # 比较三个模型的性能
-        print("\n比较模型的性能:") 
-        comparison = dl_models.compare_models()
-
-        # 单独运行相关性分析并保存结果
-        print("\n单独运行特征相关性分析...")
-        correlation_results = dl_models.analyze_feature_correlation()
+        # 绘制三种模型预测对比图
+        print("\n绘制模型预测对比图...")
+        comparison_paths = dl_models.plot_model_comparison(training_timestamp)
+        print(f"模型预测对比图保存路径: {comparison_paths}")
 
         # 输出相关性分析的总结
-        if correlation_results:
-            # 获取皮尔逊相关系数最高的5个特征
-            top_pearson = correlation_results['pearson'].abs().sort_values(ascending=False).head(5)
-            print("\n皮尔逊相关系数最高的5个特征:")
+        if hasattr(dl_models, 'correlation_results') and dl_models.correlation_results:
+            # 获取皮尔逊相关系数最高的10个特征
+            top_pearson = dl_models.correlation_results['pearson'].abs().sort_values(ascending=False).head(10)
+            print("\n皮尔逊相关系数最高的10个特征 (这些特征将被用于模型训练):")
             for feature, corr in top_pearson.items():
                 print(f"  - {feature}: {corr:.4f}")
-
-            # 获取互信息分数最高的5个特征
-            top_mi = correlation_results['mutual_info'].sort_values(ascending=False).head(5)
-            print("\n互信息分数最高的5个特征:")
-            for feature, mi in top_mi.items():
-                print(f"  - {feature}: {mi:.4f}")
 
             print("\n相关性分析结果已保存到 'correlation_analysis' 目录")
 

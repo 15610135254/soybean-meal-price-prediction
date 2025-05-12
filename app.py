@@ -38,15 +38,6 @@ def create_app(config_class=Config):
 
 # 在脚本主入口创建应用实例 (方便直接运行 python app.py 启动开发服务器)
 if __name__ == '__main__':
-    import argparse
-
-    # 创建命令行参数解析器
-    parser = argparse.ArgumentParser(description='启动豆粕期货价格预测系统')
-    parser.add_argument('--port', type=int, default=5000, help='服务器端口号')
-    parser.add_argument('--host', type=str, default='127.0.0.1', help='服务器主机地址')
-
-    # 解析命令行参数
-    args = parser.parse_args()
 
     app = create_app()
-    app.run(debug=True, host=args.host, port=args.port)
+    app.run(debug=True, host="127.0.0.1", port=8080)

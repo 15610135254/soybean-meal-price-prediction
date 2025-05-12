@@ -173,3 +173,120 @@ def check_auth():
         })
     else:
         return jsonify({'authenticated': False})
+
+# 用户管理功能
+@bp.route('/manage-users')
+@admin_required
+def manage_users():
+    users = load_users()
+    return render_template('auth/manage_users.html', users=users)
+
+@bp.route('/add-user', methods=['GET', 'POST'])
+@admin_required
+def add_user():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        role = request.form.get('role', 'user')
+        
+        # 验证输入
+        if not username:
+            flash('用户名不能为空', 'danger')
+            return redirect(url_for('auth.add_user'))
+            
+        # 检查用户名是否已存在
+        users = load_users()
+        if any(u['username'] == username for u in users):
+            flash('用户名已存在，请选择其他用户名', 'danger')
+            return redirect(url_for('auth.add_user'))
+            
+        # 创建新用户
+        new_user = {
+            "id": max([u['id'] for u in users], default=0) + 1,
+            "username": username,
+            "avatar": "https://via.placeholder.com/40",
+            "role": role,
+            "posts": 0,
+            "replies": 0,
+            "join_date": datetime.now().strftime('%Y-%m-%d'),
+            "last_active": datetime.now().strftime('%Y-%m-%d')
+        }
+        
+        # 添加新用户并保存
+        users.append(new_user)
+        if save_users(users):
+            flash('添加用户成功', 'success')
+            return redirect(url_for('auth.manage_users'))
+        else:
+            flash('添加用户失败，请稍后再试', 'danger')
+            
+    return render_template('auth/add_user.html')
+
+@bp.route('/edit-user/<int:user_id>', methods=['GET', 'POST'])
+@admin_required
+def edit_user(user_id):
+    users = load_users()
+    user = next((u for u in users if u['id'] == user_id), None)
+    
+    if not user:
+        flash('用户不存在', 'danger')
+        return redirect(url_for('auth.manage_users'))
+        
+    if request.method == 'POST':
+        username = request.form.get('username')
+        role = request.form.get('role')
+        
+        # 验证输入
+        if not username:
+            flash('用户名不能为空', 'danger')
+            return render_template('auth/edit_user.html', user=user)
+            
+        # 检查用户名是否已被其他用户使用
+        if username != user['username'] and any(u['username'] == username for u in users if u['id'] != user_id):
+            flash('用户名已存在，请选择其他用户名', 'danger')
+            return render_template('auth/edit_user.html', user=user)
+            
+        # 更新用户信息
+        user['username'] = username
+        user['role'] = role
+        user['last_active'] = datetime.now().strftime('%Y-%m-%d')
+        
+        if save_users(users):
+            flash('更新用户成功', 'success')
+            return redirect(url_for('auth.manage_users'))
+        else:
+            flash('更新用户失败，请稍后再试', 'danger')
+            
+    return render_template('auth/edit_user.html', user=user)
+
+@bp.route('/delete-user/<int:user_id>', methods=['POST'])
+@admin_required
+def delete_user(user_id):
+    users = load_users()
+    
+    # 查找要删除的用户
+    user_index = next((i for i, u in enumerate(users) if u['id'] == user_id), None)
+    
+    if user_index is None:
+        flash('用户不存在', 'danger')
+        return redirect(url_for('auth.manage_users'))
+        
+    # 不能删除自己
+    if users[user_index]['id'] == session.get('user_id'):
+        flash('不能删除当前登录的用户', 'danger')
+        return redirect(url_for('auth.manage_users'))
+        
+    # 删除用户
+    del users[user_index]
+    
+    if save_users(users):
+        flash('删除用户成功', 'success')
+    else:
+        flash('删除用户失败，请稍后再试', 'danger')
+        
+    return redirect(url_for('auth.manage_users'))
+
+@bp.route('/api/users')
+@admin_required
+def api_users():
+    users = load_users()
+    return jsonify(users)
